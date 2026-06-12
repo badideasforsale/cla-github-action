@@ -52,3 +52,9 @@ export const getGitHubAppId = (): string =>
 
 export const getGitHubAppInstallationId = (): string =>
   core.getInput('github-app-installation-id', { required: false })
+
+export const getBotName = (): string =>
+  core.getInput('bot-name', { required: false })
+
+export const getBotEmail = (): string =>
+  core.getInput('bot-email', { required: false })

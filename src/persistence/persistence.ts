@@ -1,4 +1,5 @@
 import { context } from '@actions/github'
+import * as core from '@actions/core'
 
 import { ReactedCommitterMap } from '../interfaces'
 import { getStorageOctokit } from '../octokit'
@@ -6,6 +7,32 @@ import { getStorageOctokit } from '../octokit'
 import * as input from '../shared/getInputs'
 import { buildCommitMessage } from '../shared/substituteCommitMessage'
 import { getPullRequestNumber } from '../shared/getPullRequestNumber'
+
+/**
+ * Resolve the optional bot identity for signature commits.
+ *
+ * Returns `{name, email}` when both inputs are set, `undefined` when neither
+ * is set, and `undefined` + a warning when only one is set (avoid producing
+ * commits with half the identity overridden — that's almost certainly a
+ * misconfiguration on the consumer's side).
+ *
+ * When undefined, the API uses the token's own identity:
+ *   - App auth: `<app-name>[bot]`
+ *   - PAT: the human who created the token
+ *   - GITHUB_TOKEN: `github-actions[bot]`
+ */
+function botIdentity(): { name: string; email: string } | undefined {
+  const name = input.getBotName()
+  const email = input.getBotEmail()
+  if (!name && !email) return undefined
+  if (!name || !email) {
+    core.warning(
+      'bot-name and bot-email must both be set to override the commit identity; falling back to the token default.'
+    )
+    return undefined
+  }
+  return { name, email }
+}
 
 export async function getFileContent(): Promise<any> {
   const octokit = await getStorageOctokit({
@@ -25,6 +52,7 @@ export async function createFile(contentBinary): Promise<any> {
   const octokit = await getStorageOctokit({
     isCrossRepo: isRemoteRepoOrOrgConfigured()
   })
+  const identity = botIdentity()
 
   return octokit.rest.repos.createOrUpdateFileContents({
     owner: input.getRemoteOrgName() || context.repo.owner,
@@ -34,7 +62,8 @@ export async function createFile(contentBinary): Promise<any> {
       input.getCreateFileCommitMessage() ||
       'Creating file for storing CLA Signatures',
     content: contentBinary,
-    branch: input.getBranch()
+    branch: input.getBranch(),
+    ...(identity ? { author: identity, committer: identity } : {})
   })
 }
 
@@ -63,6 +92,7 @@ export async function updateFile(
   claFileContent?.signedContributors.push(...toAdd)
   let contentString = JSON.stringify(claFileContent, null, 2)
   let contentBinary = Buffer.from(contentString).toString('base64')
+  const identity = botIdentity()
   await octokit.rest.repos.createOrUpdateFileContents({
     owner: input.getRemoteOrgName() || context.repo.owner,
     repo: input.getRemoteRepoName() || context.repo.repo,
@@ -75,7 +105,8 @@ export async function updateFile(
       repo
     }),
     content: contentBinary,
-    branch: input.getBranch()
+    branch: input.getBranch(),
+    ...(identity ? { author: identity, committer: identity } : {})
   })
 }
 

@@ -51,6 +51,12 @@ inputs:
   github-app-installation-id:
     description: "Optional. Skip the auto-discovery API call (saves ~200ms per run) by providing the installation id explicitly. Look it up via `https://github.com/settings/installations` or the API. Has no effect unless github-app-id is also set."
     default: ""
+  bot-name:
+    description: "Optional. Name to use as the author/committer of signature commits to the storage file. Defaults to the token's identity (the App's bot user for App auth, the PAT owner, or `github-actions[bot]`). Must be set together with `bot-email`."
+    default: ""
+  bot-email:
+    description: "Optional. Email to use as the author/committer of signature commits. Pairs with `bot-name`. A common stable choice for App auth is `<app-id>+<slug>[bot]@users.noreply.github.com`."
+    default: ""
 runs:
   using: "node24"
   main: 'dist/index.js'

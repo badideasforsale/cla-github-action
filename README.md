@@ -199,6 +199,12 @@ Trade-offs: PAT is tied to the human who creates it — if they leave, the actio
 | `custom-allsigned-prcomment`   | _optional_ | pull request comment when everyone has signed | All Contributors have signed the CLA. |
 | `lock-pullrequest-aftermerge`   | _optional_ | Boolean input for locking the pull request after merging. Default is set to `true`.  It is highly recommended to lock the Pull Request after merging so that the Contributors won't be able to revoke their signature comments after merge | false |
 | `suggest-recheck`   | _optional_ | Boolean input for indicating if the action's comment should suggest that users comment `recheck`. Default is set to `true`. | false |
+| `pull-request-number`   | _optional_ | Override the PR number the action operates on. Required when the workflow is triggered by `workflow_run` or any non-PR event. Defaults to `context.issue.number`. | 1234 |
+| `github-app-id`   | _optional_ | GitHub App ID. Set together with the `GITHUB_APP_PRIVATE_KEY` env var to authenticate as a GitHub App instead of `GITHUB_TOKEN`/PAT. See §6a. | 123456 |
+| `github-app-installation-id`   | _optional_ | Pin the App installation id explicitly to skip the auto-discovery API call (~200ms savings). Has no effect unless `github-app-id` is also set. | 12345678 |
+| `bot-name`   | _optional_ | Override the author/committer name on signature commits. Must be set together with `bot-email`. Defaults to the token's identity. | `cla-bot` |
+| `bot-email`   | _optional_ | Author/committer email for signature commits. Pairs with `bot-name`. A common stable form for App auth: `<app-id>+<slug>[bot]@users.noreply.github.com`. | `cla-bot@example.com` |
+| `exempt-repo-org-members`   | _optional_ | If `true`, members of the repository's owning organization are auto-allowlisted. Public-org members are visible to `GITHUB_TOKEN`; private members require a token with `read:org` scope. | true |
 
 ## Contributors
 

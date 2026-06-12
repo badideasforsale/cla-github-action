@@ -23814,6 +23814,8 @@ var lockPullRequestAfterMerge = () => getInput("lock-pullrequest-aftermerge", { 
 var suggestRecheck = () => getInput("suggest-recheck", { required: false });
 var getGitHubAppId = () => getInput("github-app-id", { required: false });
 var getGitHubAppInstallationId = () => getInput("github-app-installation-id", { required: false });
+var getBotName = () => getInput("bot-name", { required: false });
+var getBotEmail = () => getInput("bot-email", { required: false });
 
 // src/checkAllowList.ts
 var escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -25410,6 +25412,18 @@ function buildCommitMessage(template, vars) {
 }
 
 // src/persistence/persistence.ts
+function botIdentity() {
+  const name = getBotName();
+  const email = getBotEmail();
+  if (!name && !email) return void 0;
+  if (!name || !email) {
+    warning(
+      "bot-name and bot-email must both be set to override the commit identity; falling back to the token default."
+    );
+    return void 0;
+  }
+  return { name, email };
+}
 async function getFileContent() {
   const octokit = await getStorageOctokit({
     isCrossRepo: isRemoteRepoOrOrgConfigured()
@@ -25426,13 +25440,15 @@ async function createFile(contentBinary) {
   const octokit = await getStorageOctokit({
     isCrossRepo: isRemoteRepoOrOrgConfigured()
   });
+  const identity = botIdentity();
   return octokit.rest.repos.createOrUpdateFileContents({
     owner: getRemoteOrgName() || context2.repo.owner,
     repo: getRemoteRepoName() || context2.repo.repo,
     path: getPathToSignatures(),
     message: getCreateFileCommitMessage() || "Creating file for storing CLA Signatures",
     content: contentBinary,
-    branch: getBranch()
+    branch: getBranch(),
+    ...identity ? { author: identity, committer: identity } : {}
   });
 }
 async function updateFile(sha, claFileContent, reactedCommitters) {
@@ -25452,6 +25468,7 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
   claFileContent?.signedContributors.push(...toAdd);
   let contentString = JSON.stringify(claFileContent, null, 2);
   let contentBinary = Buffer.from(contentString).toString("base64");
+  const identity = botIdentity();
   await octokit.rest.repos.createOrUpdateFileContents({
     owner: getRemoteOrgName() || context2.repo.owner,
     repo: getRemoteRepoName() || context2.repo.repo,
@@ -25464,7 +25481,8 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
       repo
     }),
     content: contentBinary,
-    branch: getBranch()
+    branch: getBranch(),
+    ...identity ? { author: identity, committer: identity } : {}
   });
 }
 function isRemoteRepoOrOrgConfigured() {
