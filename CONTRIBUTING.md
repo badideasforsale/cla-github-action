@@ -1,10 +1,37 @@
-# Contributing to CLA Assistant
+# Contributing
 
-You want to contribute to CLA Assistant? Welcome! Please read this document to understand what you can do:
- * [Help Others](#help-others)
- * [Analyze Issues](#analyze-issues)
- * [Report an Issue](#report-an-issue)
- * [Contribute Code](#contribute-code)
+This is a maintained fork of [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action) (archived upstream). Patches, issues, and reviews are welcome.
+
+- [Developing this action](#developing-this-action)
+- [Reporting issues](#report-an-issue)
+- [Contributing code](#contribute-code)
+
+## Developing this action
+
+This is a TypeScript GitHub Action bundled with `@vercel/ncc` into a single `dist/index.js` that the action runtime executes. Two things follow from that:
+
+1. **`dist/index.js` is part of the source you commit.** It must be regenerated whenever `src/` changes. There is no longer a husky pre-commit hook — you must run `npm run build` manually before pushing.
+2. **CI enforces freshness.** The `verify-dist` job in `.github/workflows/nodejs.yml` rebuilds `dist/` and fails the PR if the result differs from what's committed. If you forget the rebuild, CI will tell you.
+
+### Setup
+
+```sh
+npm ci          # install deps from package-lock.json
+npm run build   # tsc + ncc → dist/index.js
+npm test        # jest (passWithNoTests until M2 lands)
+```
+
+Node 24 is required (see `engines.node` in `package.json`). The action runtime is also Node 24 (`action.yml`: `using: node24`).
+
+### Pre-PR checklist
+
+- [ ] `npm run build` succeeded and you committed any `dist/` changes
+- [ ] `npm test` passes
+- [ ] Commit message describes the *why* (the *what* is in the diff)
+
+### Architecture
+
+See [`CLAUDE.md`](./CLAUDE.md) at the repo root for the architecture overview, the foot-guns (TS strictness exceptions, boolean-as-string convention, the hardcoded github-actions[bot] filter), and where each major concern lives.
 
 ## Help Others
 

@@ -1,18 +1,38 @@
-# Security Vulnerabilities
+# Security Policy
 
-The CLA Assistant is built with security and data privacy in mind to ensure your data is safe.
+## Reporting a vulnerability
 
-## Reporting
+If you believe you have found a security vulnerability in this action, please report it **privately** so we can fix it before public disclosure.
 
-We are grateful for security researchers and users reporting a vulnerability to us, first. To ensure that your request is handled in a timely manner and non-disclosure of vulnerabilities can be assured, please follow the below guideline.
+**Preferred channel:** GitHub's [private vulnerability reporting](https://github.com/badideasforsale/cla-github-action/security/advisories/new) for this repository. This routes your report directly to the maintainers without it becoming public.
 
-**Please do not report security vulnerabilities directly on GitHub. GitHub Issues can be publicly seen and therefore would result in a direct disclosure.**
+**Do not** open a public GitHub issue for a security problem.
 
-For reporting a vulnerability, please use the Vulnerability Report Form for Security Researchers on [SAP Trust Center](https://www.sap.com/about/trust-center/security/incident-management.html).
-Please address questions about data privacy, security concepts, and other media requests using the Vulnerability Report Form for Security Researchers on SAP Trust Center.
+We aim to acknowledge reports within 5 business days and to publish a fix or a coordinated disclosure within 90 days, depending on severity and complexity.
 
+## Scope
 
+This policy covers:
 
-## Disclosure Handling
+- The action runtime — `dist/index.js` and the `src/` it is built from.
+- The bundled npm dependencies as resolved by `package-lock.json` at the time of release.
+- The GitHub Actions workflows in `.github/workflows/` that build, test, and release this project.
 
-SAP is committed to timely review and respond to your request. The resolution of code defects will be handled by a dedicated group of security experts and prepared in a private GitHub repository. The project will inform the public about resolved security vulnerabilities via GitHub Security Advisories.
+Out of scope:
+
+- Vulnerabilities in GitHub's own platform — report those to [GitHub directly](https://docs.github.com/en/site-policy/security-policies/github-bug-bounty-program-legal-safe-harbor).
+- Vulnerabilities in your own consumer workflow YAML. See the README's "Security hardening" guidance for the canonical `pull_request_target` / `actions/checkout` pitfall.
+
+## Supply chain hygiene
+
+This project takes the following hygiene steps; if you find them lacking, that's also a valid report:
+
+- Every third-party action in `.github/workflows/` is pinned to a 40-character commit SHA with a trailing version-tag comment.
+- Dependabot opens weekly PRs for npm and GitHub Actions updates (`.github/dependabot.yml`).
+- CodeQL JavaScript/TypeScript analysis runs on every push and PR to `main`, plus weekly on schedule.
+- `actions/dependency-review-action` runs on PRs and fails on additions with known vulnerabilities or disallowed licenses.
+- Releases will publish build provenance attestations via `actions/attest-build-provenance` so consumers can verify `dist/index.js` was built from this source tree at the tagged commit (`gh attestation verify`).
+
+## Acknowledgements
+
+Reports that lead to a fix will be credited in the relevant GitHub Security Advisory and in `CHANGELOG.md`, unless the reporter requests anonymity.
