@@ -53,10 +53,16 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
             cursor: ''
         })
         response.repository.pullRequest.commits.edges.forEach(edge => {
-            const committer = extractUserFromCommit(edge.node.commit)
+            const commit = edge.node.commit
+            const committer = extractUserFromCommit(commit)
+            // Email lives on commit.author (or commit.committer); the user
+            // subobject doesn't carry it. Preserve it so logs and the
+            // "not a GitHub user" UX have something to identify the person by.
+            const email = commit.author?.email || commit.committer?.email
             let user = {
                 name: committer.login || committer.name,
                 id: committer.databaseId || '',
+                email,
                 pullRequestNo: getPullRequestNumber()
             }
             if (committers.length === 0 || committers.map((c) => {

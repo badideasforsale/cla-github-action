@@ -84,6 +84,35 @@ describe('commentContent — CLA branch', () => {
       expect(out).toContain('CLA Assistant Lite bot')
     })
   })
+
+  describe('FEAT-PATH-VAR-IN-COMMENT (#113): $pathToDocument substitution in custom template', () => {
+    it('substitutes $pathToDocument in a user-provided custom-notsigned-prcomment', () => {
+      mockedInput.getCustomNotSignedPrComment.mockReturnValue(
+        'Please sign the agreement at $pathToDocument before $you can merge.'
+      )
+      const out = commentContent(
+        false,
+        makeMap({ notSigned: [{ name: 'alice', id: 1 }] })
+      )
+      expect(out).toContain('Please sign the agreement at https://example.com/CLA.md before you can merge.')
+      // $you also substitutes alongside $pathToDocument.
+      expect(out).not.toContain('$you')
+      expect(out).not.toContain('$pathToDocument')
+    })
+
+    it('substitutes every occurrence of $pathToDocument', () => {
+      mockedInput.getCustomNotSignedPrComment.mockReturnValue(
+        'see $pathToDocument and $pathToDocument again'
+      )
+      const out = commentContent(
+        false,
+        makeMap({ notSigned: [{ name: 'alice', id: 1 }] })
+      )
+      expect(out).toContain(
+        'see https://example.com/CLA.md and https://example.com/CLA.md again'
+      )
+    })
+  })
 })
 
 describe('commentContent — DCO branch', () => {

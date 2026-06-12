@@ -157,6 +157,31 @@ describe('signatureWithPRComment', () => {
     expect(result.newSigned).toEqual([])
   })
 
+  it('BUG-EMAIL-REPLY-REGEX (#19): matches sign phrase even when comment has a quoted email reply after it', async () => {
+    // Email replies to GitHub PR notifications produce a comment body where
+    // the first line is the user's message (the sign phrase) and the rest is
+    // the quoted previous email. Without the `m` flag the regex was
+    // anchored to the entire body and never matched.
+    mockListComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 200,
+          user: { login: 'alice', id: 1 },
+          body:
+            'I have read the CLA Document and I hereby sign the CLA\n' +
+            '\n' +
+            'On Wed, Mar 15, 2023, GitHub <noreply@github.com> wrote:\n' +
+            '> Please sign the CLA by replying with the phrase above.\n' +
+            '> [...](https://github.com/...)',
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+    })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])
+  })
+
   it('matches a custom sign phrase exactly when getCustomPrSignComment is set', async () => {
     mockGetCustomPrSignComment.mockReturnValue('I agree to the terms')
     mockListComments.mockResolvedValueOnce({

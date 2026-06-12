@@ -140,10 +140,16 @@ async function getCommitters() {
             cursor: ''
         });
         response.repository.pullRequest.commits.edges.forEach(edge => {
-            const committer = extractUserFromCommit(edge.node.commit);
+            const commit = edge.node.commit;
+            const committer = extractUserFromCommit(commit);
+            // Email lives on commit.author (or commit.committer); the user
+            // subobject doesn't carry it. Preserve it so logs and the
+            // "not a GitHub user" UX have something to identify the person by.
+            const email = commit.author?.email || commit.committer?.email;
             let user = {
                 name: committer.login || committer.name,
                 id: committer.databaseId || '',
+                email,
                 pullRequestNo: (0, getPullRequestNumber_1.getPullRequestNumber)()
             };
             if (committers.length === 0 || committers.map((c) => {
@@ -301,6 +307,129 @@ function getPATOctokit() {
 }
 function isPersonalAccessTokenPresent() {
     return personalAccessToken !== undefined && personalAccessToken !== '';
+}
+
+
+/***/ }),
+
+/***/ 7235:
+/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+
+"use strict";
+
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.applyOrgExemption = applyOrgExemption;
+const github_1 = __nccwpck_require__(3228);
+const core = __importStar(__nccwpck_require__(7484));
+const octokit_1 = __nccwpck_require__(5957);
+const input = __importStar(__nccwpck_require__(7189));
+/**
+ * FEAT-EXEMPT-ORG (upstream PR #157, issue #100): when the
+ * `exempt-repo-org-members` input is `'true'`, treat members of the
+ * repository's owning organization as already-allowlisted and drop them from
+ * the CLA check.
+ *
+ * Public-org membership is visible to the default `GITHUB_TOKEN`; private
+ * membership requires a token with `read:org` scope (PAT or App). If the
+ * lookup fails for any reason we emit a warning and return committers
+ * unchanged — this should never block the primary CLA flow.
+ */
+async function applyOrgExemption(committers) {
+    if (input.getExemptRepoOrgMembers() !== 'true') {
+        return committers;
+    }
+    const members = await getRepoOrgMembers();
+    if (members.length === 0)
+        return committers;
+    const memberSet = new Set(members.map(m => m.toLowerCase()));
+    const exempt = committers.filter(c => memberSet.has(c.name.toLowerCase()));
+    if (exempt.length > 0) {
+        core.info(`Exempting ${exempt.length} org member${exempt.length === 1 ? '' : 's'} from CLA check: ${exempt.map(c => c.name).join(', ')}`);
+    }
+    return committers.filter(c => !memberSet.has(c.name.toLowerCase()));
+}
+/**
+ * Fetch GitHub logins of every member of the repository's owning org via
+ * GraphQL. Returns `[]` when:
+ *  - the owner is a user account (not an org) — `organization()` returns null
+ *  - the lookup throws (auth/permissions/network) — we log a warning and
+ *    fall through; org exemption is auxiliary and must never break the
+ *    CLA flow.
+ *
+ * Paginated 100 at a time. No bound on org size; this is the responsibility
+ * of consumers who enable the feature on a 10k-member org.
+ */
+async function getRepoOrgMembers() {
+    const owner = github_1.context.repo.owner;
+    const members = [];
+    let cursor = null;
+    try {
+        /* eslint-disable no-constant-condition */
+        while (true) {
+            const response = await octokit_1.octokit.graphql(`
+          query($org: String!, $cursor: String) {
+            organization(login: $org) {
+              membersWithRole(first: 100, after: $cursor) {
+                nodes { login }
+                pageInfo { endCursor hasNextPage }
+              }
+            }
+          }
+        `, { org: owner, cursor });
+            if (!response?.organization) {
+                core.debug(`Owner "${owner}" is not an organization — no members to exempt.`);
+                return [];
+            }
+            const page = response.organization.membersWithRole;
+            for (const node of page.nodes ?? []) {
+                if (node?.login)
+                    members.push(node.login);
+            }
+            if (!page.pageInfo?.hasNextPage)
+                break;
+            cursor = page.pageInfo.endCursor;
+        }
+    }
+    catch (err) {
+        core.warning(`Could not fetch org members for exemption — continuing without org-exemption. ` +
+            `If the org is private you'll need a PAT or App token with read:org scope. ` +
+            `(${err?.message || err})`);
+        return [];
+    }
+    return members;
 }
 
 
@@ -743,7 +872,11 @@ function render(kind, signed, committerMap) {
     const committersCount = signed_count + not_signed_count || 1;
     const you = committersCount > 1 ? 'you all' : 'you';
     const lineOne = (input.getCustomNotSignedPrComment() ||
-        `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our ${documentLink(kind)} before we can accept your contribution. You can sign the ${abbrev} by just posting a Pull Request Comment same as the below format.<br/>`).replace('$you', you);
+        `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our ${documentLink(kind)} before we can accept your contribution. You can sign the ${abbrev} by just posting a Pull Request Comment same as the below format.<br/>`)
+        // Token substitution in the user-supplied template (the default text
+        // doesn't need it — pathToDocument is already interpolated by JS above).
+        .replace(/\$you/g, you)
+        .replace(/\$pathToDocument/g, input.getPathToDocument());
     let text = `${lineOne}
    - - -
    ${signComment(kind)}
@@ -911,12 +1044,15 @@ function isCommentSignedByUser(comment, commentAuthor) {
     if ((0, getInputs_1.getCustomPrSignComment)() !== "") {
         return (0, getInputs_1.getCustomPrSignComment)().toLowerCase() === comment;
     }
+    // BUG-EMAIL-REPLY-REGEX (#19): the `m` flag makes `^` and `$` match
+    // line boundaries, so a comment reply via email (sign phrase on the
+    // first line, quoted previous message after) still matches.
     // using a `string` true or false purposely as github action input cannot have a boolean value
     switch ((0, getInputs_1.getUseDcoFlag)()) {
         case 'true':
-            return comment.match(/^.*i \s*have \s*read \s*the \s*dco \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*dco.*$/) !== null;
+            return comment.match(/^.*i \s*have \s*read \s*the \s*dco \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*dco.*$/m) !== null;
         case 'false':
-            return comment.match(/^.*i \s*have \s*read \s*the \s*cla \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*cla.*$/) !== null;
+            return comment.match(/^.*i \s*have \s*read \s*the \s*cla \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*cla.*$/m) !== null;
         default:
             return false;
     }
@@ -970,6 +1106,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.setupClaCheck = setupClaCheck;
 const core = __importStar(__nccwpck_require__(7484));
 const checkAllowList_1 = __nccwpck_require__(4715);
+const orgExemption_1 = __nccwpck_require__(7235);
 const graphql_1 = __importDefault(__nccwpck_require__(5777));
 const persistence_1 = __nccwpck_require__(9947);
 const pullRequestComment_1 = __importDefault(__nccwpck_require__(366));
@@ -979,8 +1116,10 @@ async function setupClaCheck() {
     let committerMap = getInitialCommittersMap();
     let committers = await (0, graphql_1.default)();
     committers = (0, checkAllowList_1.checkAllowList)(committers);
+    committers = await (0, orgExemption_1.applyOrgExemption)(committers);
     const { claFileContent, sha } = (await getCLAFileContentandSHA(committers, committerMap));
     committerMap = prepareCommiterMap(committers, claFileContent);
+    logUnsignedCommitterDetails(committerMap);
     try {
         const reactedCommitters = (await (0, pullRequestComment_1.default)(committerMap, committers));
         if (reactedCommitters?.newSigned.length) {
@@ -1056,6 +1195,23 @@ const getInitialCommittersMap = () => ({
     notSigned: [],
     unknown: []
 });
+/**
+ * FEAT-LOG-UNSIGNED-DETAILS (#92): surface the name + email of every unsigned
+ * committer to the action log so maintainers can identify who still owes a
+ * signature — especially useful when the committer can't be resolved to a
+ * GitHub login (the only identifying info is then the raw git email).
+ */
+function logUnsignedCommitterDetails(committerMap) {
+    const notSigned = committerMap?.notSigned ?? [];
+    if (notSigned.length === 0)
+        return;
+    core.info(`Unsigned committers (${notSigned.length}):`);
+    for (const c of notSigned) {
+        const email = c.email ? ` <${c.email}>` : '';
+        const ghUser = c.id ? ` (GitHub user id ${c.id})` : ' (no GitHub user resolved)';
+        core.info(`  - ${c.name}${email}${ghUser}`);
+    }
+}
 
 
 /***/ }),
@@ -1099,7 +1255,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.suggestRecheck = exports.lockPullRequestAfterMerge = exports.getCustomPrSignComment = exports.getUseDcoFlag = exports.getCustomAllSignedPrComment = exports.getCustomNotSignedPrComment = exports.getCreateFileCommitMessage = exports.getSignedCommitMessage = exports.getAllowListItem = exports.getBranch = exports.getPathToDocument = exports.getPathToSignatures = exports.getRemoteOrgName = exports.getRemoteRepoName = void 0;
+exports.suggestRecheck = exports.lockPullRequestAfterMerge = exports.getCustomPrSignComment = exports.getUseDcoFlag = exports.getCustomAllSignedPrComment = exports.getCustomNotSignedPrComment = exports.getCreateFileCommitMessage = exports.getSignedCommitMessage = exports.getExemptRepoOrgMembers = exports.getAllowListItem = exports.getBranch = exports.getPathToDocument = exports.getPathToSignatures = exports.getRemoteOrgName = exports.getRemoteRepoName = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const getRemoteRepoName = () => {
     return core.getInput('remote-repository-name', { required: false });
@@ -1117,6 +1273,8 @@ const getBranch = () => core.getInput('branch', { required: false });
 exports.getBranch = getBranch;
 const getAllowListItem = () => core.getInput('allowlist', { required: false });
 exports.getAllowListItem = getAllowListItem;
+const getExemptRepoOrgMembers = () => core.getInput('exempt-repo-org-members', { required: false });
+exports.getExemptRepoOrgMembers = getExemptRepoOrgMembers;
 const getSignedCommitMessage = () => core.getInput('signed-commit-message', { required: false });
 exports.getSignedCommitMessage = getSignedCommitMessage;
 const getCreateFileCommitMessage = () => core.getInput('create-file-commit-message', { required: false });

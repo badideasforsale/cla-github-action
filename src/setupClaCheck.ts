@@ -1,6 +1,7 @@
 import * as core from '@actions/core'
 import { context } from '@actions/github'
 import { checkAllowList } from './checkAllowList'
+import { applyOrgExemption } from './orgExemption'
 import getCommitters from './graphql'
 import {
   ClafileContentAndSha,
@@ -22,6 +23,7 @@ export async function setupClaCheck() {
 
   let committers = await getCommitters()
   committers = checkAllowList(committers)
+  committers = await applyOrgExemption(committers)
 
   const { claFileContent, sha } = (await getCLAFileContentandSHA(
     committers,
@@ -29,6 +31,8 @@ export async function setupClaCheck() {
   )) as ClafileContentAndSha
 
   committerMap = prepareCommiterMap(committers, claFileContent) as CommitterMap
+
+  logUnsignedCommitterDetails(committerMap)
 
   try {
     const reactedCommitters = (await prCommentSetup(
@@ -145,3 +149,20 @@ const getInitialCommittersMap = (): CommitterMap => ({
   notSigned: [],
   unknown: []
 })
+
+/**
+ * FEAT-LOG-UNSIGNED-DETAILS (#92): surface the name + email of every unsigned
+ * committer to the action log so maintainers can identify who still owes a
+ * signature — especially useful when the committer can't be resolved to a
+ * GitHub login (the only identifying info is then the raw git email).
+ */
+function logUnsignedCommitterDetails(committerMap: CommitterMap): void {
+  const notSigned = committerMap?.notSigned ?? []
+  if (notSigned.length === 0) return
+  core.info(`Unsigned committers (${notSigned.length}):`)
+  for (const c of notSigned) {
+    const email = c.email ? ` <${c.email}>` : ''
+    const ghUser = c.id ? ` (GitHub user id ${c.id})` : ' (no GitHub user resolved)'
+    core.info(`  - ${c.name}${email}${ghUser}`)
+  }
+}

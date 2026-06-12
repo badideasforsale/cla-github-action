@@ -23,6 +23,9 @@ jest.mock('../src/graphql', () => jest.fn(async () => []))
 jest.mock('../src/checkAllowList', () => ({
   checkAllowList: (committers: any[]) => committers
 }))
+jest.mock('../src/orgExemption', () => ({
+  applyOrgExemption: jest.fn(async (committers: any[]) => committers)
+}))
 jest.mock('../src/persistence/persistence', () => ({
   getFileContent: jest.fn(),
   createFile: jest.fn(async () => ({})),

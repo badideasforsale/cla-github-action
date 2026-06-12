@@ -20,6 +20,9 @@ export const getBranch = (): string =>
 export const getAllowListItem = (): string =>
   core.getInput('allowlist', { required: false })
 
+export const getExemptRepoOrgMembers = (): string =>
+  core.getInput('exempt-repo-org-members', { required: false })
+
 export const getSignedCommitMessage = (): string =>
   core.getInput('signed-commit-message', { required: false })
 

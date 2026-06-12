@@ -78,7 +78,11 @@ function render(
   const lineOne = (
     input.getCustomNotSignedPrComment() ||
     `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our ${documentLink(kind)} before we can accept your contribution. You can sign the ${abbrev} by just posting a Pull Request Comment same as the below format.<br/>`
-  ).replace('$you', you)
+  )
+    // Token substitution in the user-supplied template (the default text
+    // doesn't need it — pathToDocument is already interpolated by JS above).
+    .replace(/\$you/g, you)
+    .replace(/\$pathToDocument/g, input.getPathToDocument())
 
   let text = `${lineOne}
    - - -
