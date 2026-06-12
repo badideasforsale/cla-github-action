@@ -45,6 +45,12 @@ inputs:
   pull-request-number:
     description: "Override the PR number the action operates on. Default is `context.issue.number` (the PR that triggered the workflow). Required when the workflow is triggered by `workflow_run` or any non-PR event, since those payloads don't carry a PR number directly."
     default: ""
+  github-app-id:
+    description: "GitHub App ID. When set together with the GITHUB_APP_PRIVATE_KEY env var, the action authenticates as that App in place of GITHUB_TOKEN / PERSONAL_ACCESS_TOKEN. Strongly recommended over PAT; see README for setup."
+    default: ""
+  github-app-installation-id:
+    description: "Optional. Skip the auto-discovery API call (saves ~200ms per run) by providing the installation id explicitly. Look it up via `https://github.com/settings/installations` or the API. Has no effect unless github-app-id is also set."
+    default: ""
 runs:
   using: "node24"
   main: 'dist/index.js'

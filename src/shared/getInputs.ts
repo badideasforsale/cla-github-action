@@ -46,3 +46,9 @@ export const lockPullRequestAfterMerge = (): string =>
 
 export const suggestRecheck = (): string =>
   core.getInput('suggest-recheck', { required: false })
+
+export const getGitHubAppId = (): string =>
+  core.getInput('github-app-id', { required: false })
+
+export const getGitHubAppInstallationId = (): string =>
+  core.getInput('github-app-installation-id', { required: false })
