@@ -9,6 +9,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This section tracks work toward v3.0.0.
 
+### ⚠️ Breaking changes (v2.x → v3.0.0)
+
+Consolidated summary of every behavior change consumers may notice when upgrading from `contributor-assistant/github-action@v2.6.1` or earlier to this fork's `@v3`. Most are corrections of long-standing bugs — listed here so the change is discoverable rather than surprising.
+
+**Inputs:**
+- **`signed-empty-commit-message` input removed** ([M2.9](./.plan/get-well-plan.md)). It was declared in `action.yml` but never read by any code path. Consumers who set it on v2.x: drop the line; behavior is unchanged.
+
+**Behavior corrections that consumers may see in rendered output / git history:**
+- **Bot PR comment Markdown.** `(name)[url]` → `[name](url)` for signed-committer links ([upstream #67](https://github.com/contributor-assistant/github-action/issues/67), M2.2). The old form was invalid Markdown and rendered as literal text in most PR clients.
+- **Bot stops `@`-mentioning random GitHub users** ([upstream #177](https://github.com/contributor-assistant/github-action/issues/177), M2.3). When a commit author couldn't be resolved to a GitHub login, the action used to render `@<raw-git-name>` and could ping an unrelated GitHub user. The notSigned list now omits `@`-prefix for unresolved committers.
+- **Bot PR comment now ends with a hidden HTML marker** (`<!-- cla-lite-bot:<kind>:<workflow>:<job> -->`, M3.5). Invisible in rendered Markdown, but if you scrape the bot's comments by regex this is the new tail.
+- **Auto-create signatures file actually works on first install** ([upstream #155](https://github.com/contributor-assistant/github-action/issues/155), M2.1). Pre-v3 the auto-create path was unreachable due to a string-vs-number compare; every first-time install required hand-creating `cla.json` to get past a cryptic "Could not retrieve repository contents" error. v3 just works.
+- **No more duplicate entries in cla.json** ([upstream #179](https://github.com/contributor-assistant/github-action/issues/179), M2.4). `signedContributors[]` is now deduped by `id` before writing.
+- **Allowlist matching is case-insensitive** ([upstream #169](https://github.com/contributor-assistant/github-action/issues/169), M3.2). `Copilot` now matches `copilot`. If your existing allowlist patterns relied on case-sensitive matching to *exclude* differently-cased usernames, this changes behavior.
+- **Allowlist wildcards are anchored** ([M3.2](./.plan/get-well-plan.md)). `foo*` now means "starts with `foo`" instead of "contains `foo`". `xfoox` no longer matches `foo*`. Most consumers won't notice; flagged here for completeness.
+
+**Workflow yaml recommendations (not strictly breaking; current workflows continue to work):**
+- The README example workflow now uses `contains(github.event.comment.body, 'I have read the CLA Document...')` instead of `==` — more forgiving of trailing whitespace, emoji, and quoted email replies. Existing exact-match workflows still trigger the action; they're just stricter than necessary.
+- The README example workflow now has an explicit `if: github.event.issue.pull_request` guard so the action doesn't fire on plain-issue comments ([upstream #180](https://github.com/contributor-assistant/github-action/issues/180)).
+
+**Intentionally NOT changed** (considered, rejected):
+- `branch` input default stays `master`. We considered defaulting to `main` (which GitHub itself defaults to for new repos since 2020), but the silent break for `master`-based consumers who don't set the input outweighs the convenience. Set the input explicitly to suppress.
+- `lock-pullrequest-aftermerge` default stays `true`. Locking is a security-relevant default (prevents post-merge signature revocation); changing the default to `false` would silently downgrade behavior for every existing consumer.
+- `allowlist` input not renamed to `allowlist-users`. Considered for clarity vs. the new `exempt-repo-org-members`, but the rename costs every consumer a yaml edit for marginal disambiguation. The two inputs are clearly distinguished by name as-is.
+
+**Runtime requirements:**
+- **Node 24** runtime (`action.yml`: `using: node24`). Self-hosted runners on Node 20 or earlier will fail with a "not supported" message at action start. Standard GitHub-hosted runners have Node 24 since late 2025.
+
+
+
 ### Repo
 
 - Renamed default branch `master` → `main`.
