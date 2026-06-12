@@ -1,0 +1,40 @@
+{
+  "_comment": "Reference manifest for the GitHub App this action authenticates as. Use this as a checklist when filling in the 'Create GitHub App' form at https://github.com/settings/apps/new (or your org's equivalent). The future create-cla-action-config npx bootstrap script will submit this as a manifest POST so users can one-shot the App creation.",
+
+  "name": "CLA Assistant Lite",
+  "url": "https://github.com/badideasforsale/cla-github-action",
+  "description": "Authenticates the CLA Assistant Lite GitHub Action so it can post PR comments and write the signatures file as a bot identity instead of a human-owned PAT.",
+
+  "public": false,
+
+  "hook_attributes": {
+    "url": "https://example.invalid/unused",
+    "active": false
+  },
+
+  "default_events": ["pull_request", "issue_comment"],
+
+  "default_permissions": {
+    "actions": "write",
+    "contents": "write",
+    "issues": "write",
+    "metadata": "read",
+    "members": "read",
+    "pull_requests": "read"
+  },
+
+  "_permission_notes": {
+    "actions": "write — re-run the failed CLA check after signing (pullRerunRunner.ts)",
+    "contents": "write — read + commit the signatures file (persistence.ts)",
+    "issues": "write — post/edit PR comments AND lock PR after merge (pullrequest/*)",
+    "metadata": "read — implicit; GitHub auto-grants",
+    "members": "read — for `exempt-repo-org-members: true`; remove this line if you don't use that input (orgExemption.ts)",
+    "pull_requests": "read — read PR commits and committers via GraphQL (graphql.ts)"
+  },
+
+  "_event_notes": {
+    "pull_request": "fires on PR open/sync/close — matches the action's pull_request_target trigger",
+    "issue_comment": "fires when contributors post the sign comment — matches the action's issue_comment trigger",
+    "_webhooks_disabled": "hook_attributes.active is false because this action never receives webhooks. The App is purely a token-minting facility for the GitHub Actions runtime."
+  }
+}

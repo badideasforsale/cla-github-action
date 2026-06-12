@@ -127,22 +127,60 @@ If a GitHub username is included in the allowlist, they will not be required to 
 
 ![allowlist](https://github.com/cla-assistant/github-action/blob/master/images/allowlist.gif?raw=true)
 
-#### 6. Adding Personal Access Token as a Secret
+#### 6. Authentication
 
-You have to create a [Repository Secret](https://docs.github.com/en/actions/security-guides/encrypted-secrets#creating-encrypted-secrets-for-a-repository) with the name `PERSONAL_ACCESS_TOKEN`.
-This PAT should have repo scope and is only required if you have configured to store the signatures in a remote repository/organization.
+The action needs a token to read PR data, post comments, and write the signatures file. There are three options, listed best-to-worst.
 
-##### Demo for step 6
+##### 6a. GitHub App (recommended)
 
-![personal-access-token](https://github.com/cla-assistant/github-action/blob/master/images/personal-access-token.gif?raw=true)
+A dedicated GitHub App with bot identity, short-lived 1-hour tokens, no human ownership. Best for production, best for org-wide rollouts, best for cross-repo signatures storage. Two inputs + one env var:
+
+```yml
+        with:
+          github-app-id: ${{ secrets.CLA_APP_ID }}
+          # Optional: skip the auto-discovery API call by pinning the installation id.
+          # github-app-installation-id: '12345678'
+        env:
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.CLA_APP_PRIVATE_KEY }}
+```
+
+**One-time setup** (manual; an `npx` bootstrap script is planned for v3.1.x):
+
+1. Go to `https://github.com/settings/apps/new` (personal-owned) or `https://github.com/organizations/<your-org>/settings/apps/new` (org-owned — recommended for production).
+2. Use [`docs/cla-app-manifest.json`](./docs/cla-app-manifest.json) as the reference for which permissions and events to set. The relevant fields:
+   - **Repository permissions:** Actions: write, Contents: write, Issues: write, Pull requests: read
+   - **Organization permissions** (only if you'll use `exempt-repo-org-members: true`): Members: read
+   - **Subscribe to events:** Pull request, Issue comment
+   - **Webhook:** uncheck "Active" — this action never receives webhooks
+3. Create the App, then on the App's page click "Generate a private key" — a `.pem` file downloads.
+4. Click "Install App" and pick the repo(s) you want it to cover. For cross-repo signatures storage, install on both the PR repo AND the signatures repo. If signatures are in a different org, the App must be installed in both orgs and you must set `github-app-installation-id` explicitly to the PR-repo's installation id (auto-discovery only looks up the workflow's repo).
+5. In your repo's Settings → Secrets and variables → Actions, add:
+   - `CLA_APP_ID` — the App's numeric ID (visible at the top of the App's settings page)
+   - `CLA_APP_PRIVATE_KEY` — the entire PEM contents, including `-----BEGIN RSA PRIVATE KEY-----` and `-----END RSA PRIVATE KEY-----` lines.
+6. Wire the workflow yaml as shown above.
+
+If the App-auth lookup fails for any reason (App not installed on this repo, invalid private key, network blip), the action emits a `core.warning` and falls back to `GITHUB_TOKEN` — the failure never breaks a workflow that could otherwise succeed.
+
+##### 6b. `GITHUB_TOKEN` (default)
+
+No setup. The action uses the runner's auto-provisioned token for everything. **Limitation:** `GITHUB_TOKEN` is scoped to the current repo, so it cannot write signatures to a different repo — if you want cross-repo storage, you need 6a or 6c.
+
+##### 6c. Personal Access Token (legacy)
+
+Human-tied secret. **Discouraged** for new setups — use 6a instead — but still supported for backward compatibility and as a fallback when an App isn't an option. Required only when signatures are stored in a remote repository/organization without using App auth.
+
+Create a [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with `repo` scope (and `read:org` if using `exempt-repo-org-members`), then add it as `PERSONAL_ACCESS_TOKEN` in your repo's secrets.
+
+Trade-offs: PAT is tied to the human who creates it — if they leave, the action breaks silently. Tokens are long-lived. Commits show under that human's identity, which conflates bot activity with real user activity. App auth (6a) solves all three.
 
 ### Environmental Variables:
 
 
 | Name                  | Requirement | Description |
 | --------------------- | ----------- | ----------- |
-| `GITHUB_TOKEN`        | _required_ | Usage: `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`,  CLA Action uses this in-built GitHub token to make the API calls for interacting with GitHub. It is built into Github Actions and does not need to be manually specified in your secrets store. [More Info](https://help.github.com/en/actions/configuring-and-managing-workflows/authenticating-with-the-github_token)|
-| `PERSONAL_ACCESS_TOKEN`        | _required_ | Usage: `PERSONAL_ACCESS_TOKEN : ${{ secrets.PERSONAL_ACCESS_TOKEN}}`, you have to create a [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with `repo scope` and store in the repository's [secrets](https://docs.github.com/en/actions/configuring-and-managing-workflows/creating-and-storing-encrypted-secrets). |
+| `GITHUB_TOKEN`        | _required_ (unless using App) | Usage: `GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`. The runner's auto-provisioned token. Built into GitHub Actions; does not need to be manually created. [More info](https://help.github.com/en/actions/configuring-and-managing-workflows/authenticating-with-the-github_token). |
+| `GITHUB_APP_PRIVATE_KEY` | _required_ for App auth | Usage: `GITHUB_APP_PRIVATE_KEY: ${{ secrets.CLA_APP_PRIVATE_KEY }}`. The PEM contents of the App's private key. Env var rather than action input because PEM blobs are multi-line. |
+| `PERSONAL_ACCESS_TOKEN` | _required_ for cross-repo storage without App | Usage: `PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}`. [PAT](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with `repo` scope (and `read:org` if using `exempt-repo-org-members`). |
 
 ### Inputs Description:
 

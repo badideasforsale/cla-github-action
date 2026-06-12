@@ -75,6 +75,18 @@ This section tracks work toward v3.0.0.
 - **`getPullRequestNumber()` helper.** New `src/shared/getPullRequestNumber.ts`; 11 sites that previously read `context.issue.number` directly now route through it. Today it wraps `context.issue.number` 1:1 — the abstraction sets up M5.1 (the `pull-request-number` input for `workflow_run` triggers).
 - **`buildCommitMessage()` helper.** Centralized the `$contributorName` / `$pullRequestNo` / `$owner` / `$repo` substitution that was inlined in `persistence.ts`. The new helper uses a global regex so templates referencing the same token twice now replace both sites (the prior `.replace('$contributorName', ...)` only touched the first).
 
+### Added (M5)
+
+- **`pull-request-number` input** ([M5.1](./.plan/get-well-plan.md)). Override the PR number the action operates on. Required when the workflow is triggered by `workflow_run` or any non-PR event. Invalid values (non-numeric, zero, negative) emit a warning and fall through to `context.issue.number`.
+- **GitHub App authentication** ([M5.2](./.plan/get-well-plan.md)). New `github-app-id` input + `GITHUB_APP_PRIVATE_KEY` env var. When both are set, the action authenticates as the App's installation in place of `GITHUB_TOKEN` / `PERSONAL_ACCESS_TOKEN`. App auth wins everywhere it can. Installation id is auto-discovered via `apps.getRepoInstallation`; `github-app-installation-id` input pins it explicitly (saves ~200ms per run, recommended for production). On any App-config failure, the action emits a warning and falls back to the default token — App misconfig never breaks a workflow that could otherwise succeed.
+- **`@octokit/auth-app@^8`** added as a direct dependency. ~50 KB bundle impact via `universal-github-app-jwt`.
+- **`docs/cla-app-manifest.json`** — reference App manifest with the exact permission + event set this action needs. Use as a checklist when creating the App manually; will be submitted programmatically by the planned `create-cla-action-config` `npx` bootstrap (v3.1.x).
+- **README "Authentication" section** documenting App auth (recommended), `GITHUB_TOKEN` (default), and `PERSONAL_ACCESS_TOKEN` (legacy/discouraged). PAT-using consumers continue to work without changes.
+
+### Changed (M5)
+
+- **`src/octokit.ts` is now an async factory** instead of a synchronous singleton. The bare `octokit` export is gone; consumers call `await getOctokit()` or `await getStorageOctokit({isCrossRepo})`. Behavior unchanged for the GITHUB_TOKEN and PAT paths; this is the foundation for App-auth's network-bound token mint.
+
 ### Added (M4)
 
 - **`exempt-repo-org-members` input** ([#100](https://github.com/contributor-assistant/github-action/issues/100), inspired by [PR #157](https://github.com/contributor-assistant/github-action/pull/157)). When set to `"true"`, members of the repository's owning organization are auto-allowlisted and don't need to sign. Public-org members are visible to the default `GITHUB_TOKEN`; private members require a token with `read:org` scope. Failures (user-owned repo, missing scope, network error) emit a warning and fall through — the CLA check is never blocked by the org lookup.
