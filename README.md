@@ -206,6 +206,46 @@ Trade-offs: PAT is tied to the human who creates it — if they leave, the actio
 | `bot-email`   | _optional_ | Author/committer email for signature commits. Pairs with `bot-name`. A common stable form for App auth: `<app-id>+<slug>[bot]@users.noreply.github.com`. | `cla-bot@example.com` |
 | `exempt-repo-org-members`   | _optional_ | If `true`, members of the repository's owning organization are auto-allowlisted. Public-org members are visible to `GITHUB_TOKEN`; private members require a token with `read:org` scope. | true |
 
+## Troubleshooting & setup gotchas
+
+### "Could not update the JSON file" — protected branch
+
+If you've configured branch protection on the branch where signatures are stored (the `branch` input), the action will fail with a message like:
+
+> `Could not update the JSON file: <api error>. Make sure the branch where signatures are stored is NOT protected.`
+
+GitHub's branch protection blocks direct pushes from any actor, including the bot the action authenticates as. Three options:
+
+1. **Use an unprotected branch** for signatures (e.g. a dedicated `cla-signatures` branch separate from `main`). This is the simplest fix and what we recommend.
+2. **Bypass branch protection for the App / PAT identity.** In branch protection rules → "Bypass list," add the App or the user who owns the PAT. App auth is cleaner here because the bypass entry is a non-human bot identity.
+3. **Store signatures in a separate, unprotected repository** via `remote-organization-name` + `remote-repository-name`.
+
+### PAT: classic vs fine-grained
+
+If you're using PAT auth (§6c), prefer **classic PATs** for this action. Reasons:
+
+- Fine-grained PATs require explicit repo selection at creation time and grant per-repo permissions. They're more secure, but the `apps.getRepoInstallation`-style fallbacks the action uses for cross-repo storage don't always work cleanly with fine-grained scopes. If you've configured cross-repo storage and get opaque 403/404 errors, a fine-grained PAT not covering the storage repo is the most common cause.
+- Classic PATs with `repo` scope are simpler and well-tested for this use case.
+- For org-exempt-members (`exempt-repo-org-members: true`), add `read:org` to whichever PAT type you use.
+
+If you can pick App auth instead (§6a), do that — it's strictly better than either PAT type.
+
+### Org-owned PAT 500 errors
+
+If a PAT was created by a member of an organization, and that member's privileges change (role downgrade, SSO de-provisioning, account deletion), the API can return opaque `500 Internal Server Error` responses rather than `401`/`403`. If the action suddenly starts failing without a code change, regenerate the PAT under a still-active human's account — or, again, move to App auth.
+
+### Workflow doesn't fire on issue comments
+
+If contributors post the sign comment and nothing happens, three usual suspects:
+
+1. The `if:` gate in your workflow yaml didn't match. The example uses `contains(...)` for forgiveness, but if you tightened it to `==` the comment must match exactly, including trailing whitespace.
+2. The PR is closed. The action short-circuits on `issue_comment` events against closed PRs.
+3. The contributor's comment is on a plain issue, not a PR comment. The example workflow's `if: github.event.issue.pull_request` guard filters this — make sure you have it.
+
+### Action runs but the "X out of Y signed" comment renders broken
+
+This was a real bug (inverted Markdown link, `(name)[url]` instead of `[name](url)`) fixed in v3. If you're on v2.6.1 or earlier, upgrade.
+
 ## Contributors
 
 <!-- readme: collaborators,contributors -start -->
