@@ -23094,7 +23094,7 @@ var handler = {
   set(target, methodName, value) {
     return target.cache[methodName] = value;
   },
-  get({ octokit: octokit2, scope, cache }, methodName) {
+  get({ octokit, scope, cache }, methodName) {
     if (cache[methodName]) {
       return cache[methodName];
     }
@@ -23105,27 +23105,27 @@ var handler = {
     const { endpointDefaults, decorations } = method;
     if (decorations) {
       cache[methodName] = decorate(
-        octokit2,
+        octokit,
         scope,
         methodName,
         endpointDefaults,
         decorations
       );
     } else {
-      cache[methodName] = octokit2.request.defaults(endpointDefaults);
+      cache[methodName] = octokit.request.defaults(endpointDefaults);
     }
     return cache[methodName];
   }
 };
-function endpointsToMethods(octokit2) {
+function endpointsToMethods(octokit) {
   const newMethods = {};
   for (const scope of endpointMethodsMap.keys()) {
-    newMethods[scope] = new Proxy({ octokit: octokit2, scope, cache: {} }, handler);
+    newMethods[scope] = new Proxy({ octokit, scope, cache: {} }, handler);
   }
   return newMethods;
 }
-function decorate(octokit2, scope, methodName, defaults2, decorations) {
-  const requestWithDefaults = octokit2.request.defaults(defaults2);
+function decorate(octokit, scope, methodName, defaults2, decorations) {
+  const requestWithDefaults = octokit.request.defaults(defaults2);
   function withDecorations(...args) {
     let options = requestWithDefaults.endpoint.merge(...args);
     if (decorations.mapToData) {
@@ -23137,12 +23137,12 @@ function decorate(octokit2, scope, methodName, defaults2, decorations) {
     }
     if (decorations.renamed) {
       const [newScope, newMethodName] = decorations.renamed;
-      octokit2.log.warn(
+      octokit.log.warn(
         `octokit.${scope}.${methodName}() has been renamed to octokit.${newScope}.${newMethodName}()`
       );
     }
     if (decorations.deprecated) {
-      octokit2.log.warn(decorations.deprecated);
+      octokit.log.warn(decorations.deprecated);
     }
     if (decorations.renamedParameters) {
       const options2 = requestWithDefaults.endpoint.merge(...args);
@@ -23150,7 +23150,7 @@ function decorate(octokit2, scope, methodName, defaults2, decorations) {
         decorations.renamedParameters
       )) {
         if (name in options2) {
-          octokit2.log.warn(
+          octokit.log.warn(
             `"${name}" parameter is deprecated for "octokit.${scope}.${methodName}()". Use "${alias}" instead`
           );
           if (!(alias in options2)) {
@@ -23167,15 +23167,15 @@ function decorate(octokit2, scope, methodName, defaults2, decorations) {
 }
 
 // node_modules/@octokit/plugin-rest-endpoint-methods/dist-src/index.js
-function restEndpointMethods(octokit2) {
-  const api = endpointsToMethods(octokit2);
+function restEndpointMethods(octokit) {
+  const api = endpointsToMethods(octokit);
   return {
     rest: api
   };
 }
 restEndpointMethods.VERSION = VERSION5;
-function legacyRestEndpointMethods(octokit2) {
-  const api = endpointsToMethods(octokit2);
+function legacyRestEndpointMethods(octokit) {
+  const api = endpointsToMethods(octokit);
   return {
     ...api,
     rest: api
@@ -23215,9 +23215,9 @@ function normalizePaginatedListResponse(response) {
   response.data.total_commits = totalCommits;
   return response;
 }
-function iterator(octokit2, route, parameters) {
-  const options = typeof route === "function" ? route.endpoint(parameters) : octokit2.request.endpoint(route, parameters);
-  const requestMethod = typeof route === "function" ? route : octokit2.request;
+function iterator(octokit, route, parameters) {
+  const options = typeof route === "function" ? route.endpoint(parameters) : octokit.request.endpoint(route, parameters);
+  const requestMethod = typeof route === "function" ? route : octokit.request;
   const method = options.method;
   const headers = options.headers;
   let url = options.url;
@@ -23257,19 +23257,19 @@ function iterator(octokit2, route, parameters) {
     })
   };
 }
-function paginate(octokit2, route, parameters, mapFn) {
+function paginate(octokit, route, parameters, mapFn) {
   if (typeof parameters === "function") {
     mapFn = parameters;
     parameters = void 0;
   }
   return gather(
-    octokit2,
+    octokit,
     [],
-    iterator(octokit2, route, parameters)[Symbol.asyncIterator](),
+    iterator(octokit, route, parameters)[Symbol.asyncIterator](),
     mapFn
   );
 }
-function gather(octokit2, results, iterator2, mapFn) {
+function gather(octokit, results, iterator2, mapFn) {
   return iterator2.next().then((result) => {
     if (result.done) {
       return results;
@@ -23284,16 +23284,16 @@ function gather(octokit2, results, iterator2, mapFn) {
     if (earlyExit) {
       return results;
     }
-    return gather(octokit2, results, iterator2, mapFn);
+    return gather(octokit, results, iterator2, mapFn);
   });
 }
 var composePaginateRest = Object.assign(paginate, {
   iterator
 });
-function paginateRest(octokit2) {
+function paginateRest(octokit) {
   return {
-    paginate: Object.assign(paginate.bind(null, octokit2), {
-      iterator: iterator.bind(null, octokit2)
+    paginate: Object.assign(paginate.bind(null, octokit), {
+      iterator: iterator.bind(null, octokit)
     })
   };
 }
@@ -23793,24 +23793,6 @@ function info(message) {
 }
 
 // src/shared/getInputs.ts
-var getInputs_exports = {};
-__export(getInputs_exports, {
-  getAllowListItem: () => getAllowListItem,
-  getBranch: () => getBranch,
-  getCreateFileCommitMessage: () => getCreateFileCommitMessage,
-  getCustomAllSignedPrComment: () => getCustomAllSignedPrComment,
-  getCustomNotSignedPrComment: () => getCustomNotSignedPrComment,
-  getCustomPrSignComment: () => getCustomPrSignComment,
-  getExemptRepoOrgMembers: () => getExemptRepoOrgMembers,
-  getPathToDocument: () => getPathToDocument,
-  getPathToSignatures: () => getPathToSignatures,
-  getRemoteOrgName: () => getRemoteOrgName,
-  getRemoteRepoName: () => getRemoteRepoName,
-  getSignedCommitMessage: () => getSignedCommitMessage,
-  getUseDcoFlag: () => getUseDcoFlag,
-  lockPullRequestAfterMerge: () => lockPullRequestAfterMerge,
-  suggestRecheck: () => suggestRecheck
-});
 var getRemoteRepoName = () => {
   return getInput("remote-repository-name", { required: false });
 };
@@ -23854,22 +23836,43 @@ function checkAllowList(committers) {
 }
 
 // src/octokit.ts
-var githubActionsDefaultToken = process.env.GITHUB_TOKEN;
-var personalAccessToken = process.env.PERSONAL_ACCESS_TOKEN;
-var octokit = getOctokit(githubActionsDefaultToken);
-function getDefaultOctokitClient() {
-  return getOctokit(githubActionsDefaultToken);
+var primaryCache;
+var storageCache;
+async function getOctokit2() {
+  if (primaryCache) return primaryCache;
+  primaryCache = getOctokit(requireGithubToken());
+  return primaryCache;
 }
-function getPATOctokit() {
-  if (!isPersonalAccessTokenPresent()) {
-    setFailed(
-      `Please add a personal access token as an environment variable for writing signatures in a remote repository/organization as mentioned in the README.md file`
-    );
+async function getStorageOctokit(args) {
+  if (storageCache) return storageCache;
+  if (args.isCrossRepo && isPersonalAccessTokenPresent()) {
+    storageCache = getOctokit(requirePersonalAccessToken());
+  } else {
+    storageCache = getOctokit(requireGithubToken());
   }
-  return getOctokit(personalAccessToken);
+  return storageCache;
 }
 function isPersonalAccessTokenPresent() {
-  return personalAccessToken !== void 0 && personalAccessToken !== "";
+  const t = process.env.PERSONAL_ACCESS_TOKEN;
+  return t !== void 0 && t !== "";
+}
+function requireGithubToken() {
+  const t = process.env.GITHUB_TOKEN;
+  if (!t) {
+    throw new Error(
+      "GITHUB_TOKEN env var is required. The GitHub Actions runner normally sets this automatically; ensure your workflow yaml passes `env.GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`."
+    );
+  }
+  return t;
+}
+function requirePersonalAccessToken() {
+  const t = process.env.PERSONAL_ACCESS_TOKEN;
+  if (!t) {
+    throw new Error(
+      "PERSONAL_ACCESS_TOKEN env var is required for cross-repo signatures storage when not using GitHub App auth."
+    );
+  }
+  return t;
 }
 
 // src/orgExemption.ts
@@ -23893,6 +23896,7 @@ async function getRepoOrgMembers() {
   const members = [];
   let cursor = null;
   try {
+    const octokit = await getOctokit2();
     while (true) {
       const response = await octokit.graphql(
         `
@@ -23947,6 +23951,7 @@ function getPullRequestNumber() {
 // src/graphql.ts
 async function getCommitters() {
   try {
+    const octokit = await getOctokit2();
     let committers = [];
     let filteredCommitters = [];
     let response = await octokit.graphql(`
@@ -24028,8 +24033,10 @@ function buildCommitMessage(template, vars) {
 
 // src/persistence/persistence.ts
 async function getFileContent() {
-  const octokitInstance = isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient();
-  const result = await octokitInstance.rest.repos.getContent({
+  const octokit = await getStorageOctokit({
+    isCrossRepo: isRemoteRepoOrOrgConfigured()
+  });
+  const result = await octokit.rest.repos.getContent({
     owner: getRemoteOrgName() || context2.repo.owner,
     repo: getRemoteRepoName() || context2.repo.repo,
     path: getPathToSignatures(),
@@ -24038,8 +24045,10 @@ async function getFileContent() {
   return result;
 }
 async function createFile(contentBinary) {
-  const octokitInstance = isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient();
-  return octokitInstance.rest.repos.createOrUpdateFileContents({
+  const octokit = await getStorageOctokit({
+    isCrossRepo: isRemoteRepoOrOrgConfigured()
+  });
+  return octokit.rest.repos.createOrUpdateFileContents({
     owner: getRemoteOrgName() || context2.repo.owner,
     repo: getRemoteRepoName() || context2.repo.repo,
     path: getPathToSignatures(),
@@ -24049,7 +24058,9 @@ async function createFile(contentBinary) {
   });
 }
 async function updateFile(sha, claFileContent, reactedCommitters) {
-  const octokitInstance = isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient();
+  const octokit = await getStorageOctokit({
+    isCrossRepo: isRemoteRepoOrOrgConfigured()
+  });
   const pullRequestNo = getPullRequestNumber();
   const owner = context2.issue.owner;
   const repo = context2.issue.repo;
@@ -24063,7 +24074,7 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
   claFileContent?.signedContributors.push(...toAdd);
   let contentString = JSON.stringify(claFileContent, null, 2);
   let contentBinary = Buffer.from(contentString).toString("base64");
-  await octokitInstance.rest.repos.createOrUpdateFileContents({
+  await octokit.rest.repos.createOrUpdateFileContents({
     owner: getRemoteOrgName() || context2.repo.owner,
     repo: getRemoteRepoName() || context2.repo.repo,
     path: getPathToSignatures(),
@@ -24079,17 +24090,13 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
   });
 }
 function isRemoteRepoOrOrgConfigured() {
-  let isRemoteRepoOrOrgConfigured2 = false;
-  if (getInputs_exports?.getRemoteRepoName() || getRemoteOrgName()) {
-    isRemoteRepoOrOrgConfigured2 = true;
-    return isRemoteRepoOrOrgConfigured2;
-  }
-  return isRemoteRepoOrOrgConfigured2;
+  return Boolean(getRemoteRepoName() || getRemoteOrgName());
 }
 
 // src/pullrequest/signatureComment.ts
 async function signatureWithPRComment(committerMap, committers) {
   let repoId = context2.payload.repository.id;
+  const octokit = await getOctokit2();
   let prResponse = await octokit.rest.issues.listComments({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24238,6 +24245,7 @@ async function prCommentSetup(committerMap, committers) {
   }
 }
 async function createComment(signed, committerMap) {
+  const octokit = await getOctokit2();
   await octokit.rest.issues.createComment({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24248,6 +24256,7 @@ async function createComment(signed, committerMap) {
   });
 }
 async function updateComment(signed, committerMap, claBotComment) {
+  const octokit = await getOctokit2();
   await octokit.rest.issues.updateComment({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24259,6 +24268,7 @@ async function updateComment(signed, committerMap, claBotComment) {
 }
 async function getComment() {
   try {
+    const octokit = await getOctokit2();
     const response = await octokit.rest.issues.listComments({ owner: context2.repo.owner, repo: context2.repo.repo, issue_number: getPullRequestNumber() });
     const marker = commentMarker();
     const markerMatch = response.data.find(
@@ -24313,6 +24323,7 @@ async function reRunLastWorkFlowIfRequired() {
   }
 }
 async function getBranchOfPullRequest() {
+  const octokit = await getOctokit2();
   const pullRequest = await octokit.rest.pulls.get({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24321,6 +24332,7 @@ async function getBranchOfPullRequest() {
   return pullRequest.data.head.ref;
 }
 async function getSelfWorkflowId() {
+  const octokit = await getOctokit2();
   const perPage = 30;
   let hasNextPage = true;
   for (let page = 1; hasNextPage === true; page++) {
@@ -24347,6 +24359,7 @@ async function getSelfWorkflowId() {
 }
 async function listWorkflowRunsInBranch(branch, workflowId) {
   debug(`listing workflow runs on branch ${branch}`);
+  const octokit = await getOctokit2();
   const runs = await octokit.rest.actions.listWorkflowRuns({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24357,6 +24370,7 @@ async function listWorkflowRunsInBranch(branch, workflowId) {
   return runs;
 }
 async function reRunWorkflow(run2) {
+  const octokit = await getOctokit2();
   await octokit.rest.actions.reRunWorkflow({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24364,6 +24378,7 @@ async function reRunWorkflow(run2) {
   });
 }
 async function checkIfLastWorkFlowFailed(run2) {
+  const octokit = await getOctokit2();
   const response = await octokit.rest.actions.getWorkflowRun({
     owner: context2.repo.owner,
     repo: context2.repo.repo,
@@ -24482,6 +24497,7 @@ async function lockPullRequest() {
   info("Locking the Pull Request to safe guard the Pull Request CLA Signatures");
   const pullRequestNo = getPullRequestNumber();
   try {
+    const octokit = await getOctokit2();
     await octokit.rest.issues.lock(
       {
         owner: context2.repo.owner,

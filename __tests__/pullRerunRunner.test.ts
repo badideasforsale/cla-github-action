@@ -21,7 +21,7 @@ jest.mock('@actions/github', () => ({
   }
 }))
 jest.mock('../src/octokit', () => ({
-  octokit: {
+  getOctokit: jest.fn(async () => ({
     rest: {
       pulls: { get: mockGetPull },
       actions: {
@@ -31,7 +31,7 @@ jest.mock('../src/octokit', () => ({
         reRunWorkflow: mockReRunWorkflow
       }
     }
-  }
+  }))
 }))
 
 import { reRunLastWorkFlowIfRequired } from '../src/pullRerunRunner'

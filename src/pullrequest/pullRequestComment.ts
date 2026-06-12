@@ -1,4 +1,4 @@
-import { octokit } from '../octokit'
+import { getOctokit } from '../octokit'
 import { context } from '@actions/github'
 import signatureWithPRComment from './signatureComment'
 import { commentContent, commentMarker } from './pullRequestCommentContent'
@@ -39,6 +39,7 @@ export default async function prCommentSetup(committerMap: CommitterMap, committ
 }
 
 async function createComment(signed: boolean, committerMap: CommitterMap): Promise<void> {
+  const octokit = await getOctokit()
   await octokit.rest.issues.createComment({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -48,6 +49,7 @@ async function createComment(signed: boolean, committerMap: CommitterMap): Promi
 }
 
 async function updateComment(signed: boolean, committerMap: CommitterMap, claBotComment: any): Promise<void> {
+  const octokit = await getOctokit()
   await octokit.rest.issues.updateComment({
     owner: context.repo.owner,
     repo: context.repo.repo,
@@ -58,6 +60,7 @@ async function updateComment(signed: boolean, committerMap: CommitterMap, claBot
 
 async function getComment() {
   try {
+    const octokit = await getOctokit()
     const response = await octokit.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: getPullRequestNumber() })
 
     // Prefer comments with this job's hidden HTML-comment marker — keeps

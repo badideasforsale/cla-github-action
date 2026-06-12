@@ -1,24 +1,78 @@
-import { getOctokit } from '@actions/github'
+import { getOctokit as createOctokitClient } from '@actions/github'
 
-import * as core from '@actions/core'
+type OctokitInstance = ReturnType<typeof createOctokitClient>
 
-const githubActionsDefaultToken = process.env.GITHUB_TOKEN
-const personalAccessToken = process.env.PERSONAL_ACCESS_TOKEN as string
+// Module-level caches so repeated calls in one run don't redundantly mint
+// clients (this matters once App auth lands in M5.2b — App-token minting is
+// a network call and we should do it at most once per kind).
+let primaryCache: OctokitInstance | undefined
+let storageCache: OctokitInstance | undefined
 
-export const octokit = getOctokit(githubActionsDefaultToken as string)
-
-export function getDefaultOctokitClient() {
-  return getOctokit(githubActionsDefaultToken as string)
+/**
+ * Reset the module-level client caches. Test-only — production code should
+ * never need this. Marked underscored to discourage accidental use.
+ */
+export function _resetOctokitCacheForTests(): void {
+  primaryCache = undefined
+  storageCache = undefined
 }
-export function getPATOctokit() {
-  if (!isPersonalAccessTokenPresent()) {
-    core.setFailed(
-      `Please add a personal access token as an environment variable for writing signatures in a remote repository/organization as mentioned in the README.md file`
-    )
+
+/**
+ * The Octokit used for PR-side operations: graphql committer lookup,
+ * issue/PR comments, PR lock, workflow re-run, org-member lookup.
+ *
+ * Today: `GITHUB_TOKEN`-backed client.
+ * M5.2b: when App credentials are configured, App-installation token wins.
+ */
+export async function getOctokit(): Promise<OctokitInstance> {
+  if (primaryCache) return primaryCache
+  primaryCache = createOctokitClient(requireGithubToken())
+  return primaryCache
+}
+
+/**
+ * The Octokit used for reading/writing the signatures storage file. Differs
+ * from the primary client only when the signatures are stored in a remote
+ * repository — the default `GITHUB_TOKEN` is scoped to the current repo
+ * and cannot write to another, so we fall over to a Personal Access Token.
+ *
+ * Today: PAT when cross-repo + PAT is set; else `GITHUB_TOKEN`.
+ * M5.2b: when App credentials are configured, App-installation token wins
+ *        (assumes the App is installed on the remote signatures repo too).
+ */
+export async function getStorageOctokit(args: {
+  isCrossRepo: boolean
+}): Promise<OctokitInstance> {
+  if (storageCache) return storageCache
+  if (args.isCrossRepo && isPersonalAccessTokenPresent()) {
+    storageCache = createOctokitClient(requirePersonalAccessToken())
+  } else {
+    storageCache = createOctokitClient(requireGithubToken())
   }
-  return getOctokit(personalAccessToken)
+  return storageCache
 }
 
 export function isPersonalAccessTokenPresent(): boolean {
-  return personalAccessToken !== undefined && personalAccessToken !== ''
+  const t = process.env.PERSONAL_ACCESS_TOKEN
+  return t !== undefined && t !== ''
+}
+
+function requireGithubToken(): string {
+  const t = process.env.GITHUB_TOKEN
+  if (!t) {
+    throw new Error(
+      'GITHUB_TOKEN env var is required. The GitHub Actions runner normally sets this automatically; ensure your workflow yaml passes `env.GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}`.'
+    )
+  }
+  return t
+}
+
+function requirePersonalAccessToken(): string {
+  const t = process.env.PERSONAL_ACCESS_TOKEN
+  if (!t) {
+    throw new Error(
+      'PERSONAL_ACCESS_TOKEN env var is required for cross-repo signatures storage when not using GitHub App auth.'
+    )
+  }
+  return t
 }

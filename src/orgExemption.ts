@@ -2,7 +2,7 @@ import { context } from '@actions/github'
 import * as core from '@actions/core'
 
 import { CommittersDetails } from './interfaces'
-import { octokit } from './octokit'
+import { getOctokit } from './octokit'
 import * as input from './shared/getInputs'
 
 /**
@@ -50,6 +50,7 @@ async function getRepoOrgMembers(): Promise<string[]> {
   const members: string[] = []
   let cursor: string | null = null
   try {
+    const octokit = await getOctokit()
     /* eslint-disable no-constant-condition */
     while (true) {
       const response: any = await octokit.graphql(

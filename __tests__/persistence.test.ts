@@ -19,13 +19,12 @@ jest.mock('@actions/github', () => ({
 
 const mockCreateOrUpdate = jest.fn(async () => ({}))
 jest.mock('../src/octokit', () => ({
-  octokit: { rest: { repos: { createOrUpdateFileContents: mockCreateOrUpdate } } },
-  getDefaultOctokitClient: () => ({
+  getOctokit: jest.fn(async () => ({
     rest: { repos: { createOrUpdateFileContents: mockCreateOrUpdate } }
-  }),
-  getPATOctokit: () => ({
+  })),
+  getStorageOctokit: jest.fn(async () => ({
     rest: { repos: { createOrUpdateFileContents: mockCreateOrUpdate } }
-  }),
+  })),
   isPersonalAccessTokenPresent: () => false
 }))
 

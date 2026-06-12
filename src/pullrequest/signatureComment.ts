@@ -1,4 +1,4 @@
-import { octokit } from '../octokit'
+import { getOctokit } from '../octokit'
 import { context } from '@actions/github'
 import { CommitterMap, CommittersDetails, ReactedCommitterMap } from '../interfaces'
 import { getUseDcoFlag, getCustomPrSignComment } from '../shared/getInputs'
@@ -9,6 +9,7 @@ import * as core from '@actions/core'
 export default async function signatureWithPRComment(committerMap: CommitterMap, committers): Promise<ReactedCommitterMap> {
 
     let repoId = context.payload.repository!.id
+    const octokit = await getOctokit()
     let prResponse = await octokit.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,

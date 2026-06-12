@@ -16,7 +16,7 @@ jest.mock('@actions/github', () => ({
   context: { repo: { owner: 'acme-org', repo: 'demo' } }
 }))
 jest.mock('../src/octokit', () => ({
-  octokit: { graphql: mockGraphql }
+  getOctokit: jest.fn(async () => ({ graphql: mockGraphql }))
 }))
 jest.mock('../src/shared/getInputs', () => ({
   getExemptRepoOrgMembers: mockGetExempt

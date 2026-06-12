@@ -22,7 +22,9 @@ jest.mock('@actions/github', () => ({
   }
 }))
 jest.mock('../src/octokit', () => ({
-  octokit: { rest: { issues: { listComments: mockListComments } } }
+  getOctokit: jest.fn(async () => ({
+    rest: { issues: { listComments: mockListComments } }
+  }))
 }))
 jest.mock('../src/shared/getInputs', () => ({
   getUseDcoFlag: mockGetUseDcoFlag,

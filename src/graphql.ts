@@ -1,4 +1,4 @@
-import { octokit } from './octokit'
+import { getOctokit } from './octokit'
 import { context } from '@actions/github'
 import { CommittersDetails } from './interfaces'
 import { getPullRequestNumber } from './shared/getPullRequestNumber'
@@ -7,6 +7,7 @@ import { getPullRequestNumber } from './shared/getPullRequestNumber'
 
 export default async function getCommitters(): Promise<CommittersDetails[]> {
     try {
+        const octokit = await getOctokit()
         let committers: CommittersDetails[] = []
         let filteredCommitters: CommittersDetails[] = []
         let response: any = await octokit.graphql(`
