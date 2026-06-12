@@ -115,6 +115,20 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - **README "Authentication" section** documenting App auth (recommended), `GITHUB_TOKEN` (default), and `PERSONAL_ACCESS_TOKEN` (legacy/discouraged). PAT-using consumers continue to work without changes.
 - **README "Troubleshooting & setup gotchas" section** ([M5.4](./.plan/get-well-plan.md)) covering branch-protection on the signatures branch, PAT classic vs fine-grained guidance, org-owned-PAT 500-error pitfall, `issue_comment` event filtering, and the v2-era broken-Markdown-link symptom.
 
+### Added (M6)
+
+- **Documented defaults for every input** ([M6.4](./.plan/get-well-plan.md)). README's "Inputs" table now shows a `Default` column alongside each input; absent default = required. `action.yml` is the source of truth.
+- **DCO parity in action.yml + README banner** ([M6.5](./.plan/get-well-plan.md)). Input descriptions now mention "CLA/DCO" rather than CLA-only; README's top-of-file callout tells DCO users that everything else applies modulo terminology.
+- **OpenSSF Scorecard workflow** ([M6.8](./.plan/get-well-plan.md)). `.github/workflows/scorecard.yml` runs weekly, publishes to securityscorecards.dev, and uploads SARIF results to code-scanning. Read-only at the top level; per-job least-privilege. SHA-pinned per M1.16.
+
+### Deferred to v3.1.x
+
+These M6 items aren't on the critical path for v3.0 and ship later:
+- `FEAT-ALLOWLIST-TEAMS` — team-based allowlist (`@org/team` entries)
+- `FEAT-ALLOWLIST-FROM-FILE` — `allowlist-file:` input for long lists
+- `FEAT-LABELS` — read/write CLA-status labels on PRs
+- `FEAT-CSV-MIGRATION-SCRIPT` — convert cla-assistant.io CSV exports to our JSON
+
 ### Changed (M5)
 
 - **`src/octokit.ts` is now an async factory** instead of a synchronous singleton. The bare `octokit` export is gone; consumers call `await getOctokit()` or `await getStorageOctokit({isCrossRepo})`. Behavior unchanged for the GITHUB_TOKEN and PAT paths; this is the foundation for App-auth's network-bound token mint.

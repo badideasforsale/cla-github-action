@@ -10,6 +10,9 @@
 
 Streamline your workflow and let this GitHub Action (a lite version of [CLA Assistant](https://github.com/cla-assistant/cla-assistant)) handle the legal side of contributions to a repository for you. CLA assistant GitHub action enables contributors to sign CLAs from within a pull request. With this GitHub Action we could get rid of the need for a centrally managed database by **storing the contributor's signature data** in a decentralized way - **in the same repository's file system** or **in a remote repository** which can be even a private repository.
 
+> [!TIP]
+> **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Everything in this README applies — wording in the bot comments, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA".
+
 ### Features
 1. decentralized data storage
 1. fully integrated within github environment
@@ -182,29 +185,32 @@ Trade-offs: PAT is tied to the human who creates it — if they leave, the actio
 | `GITHUB_APP_PRIVATE_KEY` | _required_ for App auth | Usage: `GITHUB_APP_PRIVATE_KEY: ${{ secrets.CLA_APP_PRIVATE_KEY }}`. The PEM contents of the App's private key. Env var rather than action input because PEM blobs are multi-line. |
 | `PERSONAL_ACCESS_TOKEN` | _required_ for cross-repo storage without App | Usage: `PERSONAL_ACCESS_TOKEN: ${{ secrets.PERSONAL_ACCESS_TOKEN }}`. [PAT](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with `repo` scope (and `read:org` if using `exempt-repo-org-members`). |
 
-### Inputs Description:
+### Inputs
 
-| Name                  | Requirement | Description | Example |
-| --------------------- | ----------- | ----------- | ------- |
-| `path-to-document`     | _required_ |  provide full URL `https://<clafile>` to the document which shall be signed by the contributor(s)  It can be any file e.g. inside the repository or it can be a gist. | https://github.com/cla-assistant/github-action/blob/master/SAPCLA.md |
-| `path-to-signatures`       | _optional_ |  Path to the JSON file where  all the signatures of the contributors will be stored inside the repository. | signatures/version1/cla.json |
-| `branch`   | _optional_ |  Branch in which all the signatures of the contributors will be stored and Default branch is `master`.  | master |
-| `allowlist`   | _optional_ | You can specify users and bots to be [added in allowlist](https://github.com/cla-assistant/github-action#5-users-and-bots-in-allowlist).  | user1,user2,bot* |
-| `remote-repository-name`   | _optional_ | provide the remote repository name where all the signatures should be stored . | remote repository name |
-| `remote-organization-name`   | _optional_ | provide the remote organization name where all the signatures should be stored. | remote organization name |
-| `create-file-commit-message`   | _optional_ |Commit message when a new CLA file is created. | Creating file for storing CLA Signatures. |
-| `signed-commit-message`   | _optional_ | Commit message when a new contributor signs the CLA in a Pull Request. |  $contributorName has signed the CLA in $pullRequestNo |
-| `custom-notsigned-prcomment`   | _optional_ | Introductory Pull Request comment to ask new contributors to sign. | Thank you for your contribution and please kindly read and sign our $pathToCLADocument |
-| `custom-pr-sign-comment`   | _optional_ | The signature to be committed in order to sign the CLA. | I have read the Developer Terms Document and I hereby accept the Terms |
-| `custom-allsigned-prcomment`   | _optional_ | pull request comment when everyone has signed | All Contributors have signed the CLA. |
-| `lock-pullrequest-aftermerge`   | _optional_ | Boolean input for locking the pull request after merging. Default is set to `true`.  It is highly recommended to lock the Pull Request after merging so that the Contributors won't be able to revoke their signature comments after merge | false |
-| `suggest-recheck`   | _optional_ | Boolean input for indicating if the action's comment should suggest that users comment `recheck`. Default is set to `true`. | false |
-| `pull-request-number`   | _optional_ | Override the PR number the action operates on. Required when the workflow is triggered by `workflow_run` or any non-PR event. Defaults to `context.issue.number`. | 1234 |
-| `github-app-id`   | _optional_ | GitHub App ID. Set together with the `GITHUB_APP_PRIVATE_KEY` env var to authenticate as a GitHub App instead of `GITHUB_TOKEN`/PAT. See §6a. | 123456 |
-| `github-app-installation-id`   | _optional_ | Pin the App installation id explicitly to skip the auto-discovery API call (~200ms savings). Has no effect unless `github-app-id` is also set. | 12345678 |
-| `bot-name`   | _optional_ | Override the author/committer name on signature commits. Must be set together with `bot-email`. Defaults to the token's identity. | `cla-bot` |
-| `bot-email`   | _optional_ | Author/committer email for signature commits. Pairs with `bot-name`. A common stable form for App auth: `<app-id>+<slug>[bot]@users.noreply.github.com`. | `cla-bot@example.com` |
-| `exempt-repo-org-members`   | _optional_ | If `true`, members of the repository's owning organization are auto-allowlisted. Public-org members are visible to `GITHUB_TOKEN`; private members require a token with `read:org` scope. | true |
+Inputs without a default are required. `action.yml` is the source of truth; this table summarizes.
+
+| Name | Default | Description | Example |
+| --- | --- | --- | --- |
+| `path-to-document` | _(required)_ | Full URL to the CLA/DCO document the contributor must sign. Can be a file in this repo, a gist, or any web URL. | `https://github.com/<owner>/<repo>/blob/main/CLA.md` |
+| `path-to-signatures` | `./signatures/cla.json` | Path inside the storage repo for the JSON file holding signatures. | `signatures/version1/cla.json` |
+| `branch` | `master` | Branch on the storage repo where signatures are committed. Must not be branch-protected. | `main` |
+| `use-dco-flag` | `"false"` | Set to `"true"` to use DCO wording and detection regex instead of CLA. | `"true"` |
+| `allowlist` | `""` | Comma-separated usernames + wildcard patterns. Matched case-insensitively against the GitHub login. | `user1,user2,bot*` |
+| `exempt-repo-org-members` | `"false"` | When `"true"`, members of the repository's owning organization are auto-allowlisted. Requires `read:org` for private orgs. | `"true"` |
+| `remote-organization-name` | _(empty)_ | Store signatures in a different org's repo. Requires App auth or PAT to write cross-repo. | `my-org` |
+| `remote-repository-name` | _(empty)_ | Pair with `remote-organization-name`. | `cla-signatures` |
+| `lock-pullrequest-aftermerge` | `"true"` | Lock the PR's comment thread after merge so contributors can't revoke their signature post-hoc. | `"false"` |
+| `suggest-recheck` | `"true"` | Whether the bot comment suggests `recheck` as a re-trigger phrase. | `"false"` |
+| `pull-request-number` | _(empty)_ | Override `context.issue.number`. Required for `workflow_run` and other non-PR triggers. | `1234` |
+| `custom-notsigned-prcomment` | _(empty — uses default text)_ | Override the bot's "please sign" message. Supports `$you` and `$pathToDocument` substitutions. | `Please sign $pathToDocument` |
+| `custom-pr-sign-comment` | _(empty — uses default phrase)_ | Override the exact phrase contributors must post to sign. | `I agree to the CLA` |
+| `custom-allsigned-prcomment` | _(empty — uses default text)_ | Override the bot's "all signed" footer message. | `All set, thanks!` |
+| `create-file-commit-message` | `Creating file for storing CLA Signatures` | Commit message when the action auto-creates the signatures file on first run. | `chore: init cla.json` |
+| `signed-commit-message` | `@$contributorName has signed the CLA in $owner/$repo#$pullRequestNo` | Commit message when a contributor signs. Supports `$contributorName`, `$pullRequestNo`, `$owner`, `$repo` substitutions. | `$contributorName signed PR #$pullRequestNo` |
+| `bot-name` | _(empty — uses token identity)_ | Override the author/committer name on signature commits. Must be set together with `bot-email`. | `cla-bot` |
+| `bot-email` | _(empty — uses token identity)_ | Override the author/committer email. Pairs with `bot-name`. | `cla-bot@example.com` |
+| `github-app-id` | _(empty — uses GITHUB_TOKEN/PAT)_ | Numeric GitHub App ID. Set with `GITHUB_APP_PRIVATE_KEY` env var to authenticate as the App. See §6a. | `123456` |
+| `github-app-installation-id` | _(empty — auto-discovers)_ | Pin the installation id explicitly to skip the auto-discovery API call (~200 ms). | `12345678` |
 
 ## Troubleshooting & setup gotchas
 
