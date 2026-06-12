@@ -516,7 +516,7 @@ async function getSelfWorkflowId() {
     return null;
 }
 async function listWorkflowRunsInBranch(branch, workflowId) {
-    console.debug(branch);
+    core.debug(`listing workflow runs on branch ${branch}`);
     const runs = await octokit_1.octokit.rest.actions.listWorkflowRuns({
         owner: github_1.context.repo.owner,
         repo: github_1.context.repo.repo,

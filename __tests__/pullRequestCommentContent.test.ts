@@ -157,3 +157,94 @@ describe('commentMarker (BUG-COMMENT-MARKER / upstream #153)', () => {
     expect(out).toContain('<!-- cla-lite-bot:cla:wf:job -->')
   })
 })
+
+describe('full-comment snapshots (regression detection)', () => {
+  // These snapshots catch byte-level drift in the rendered comment, which
+  // matters because consumers see this text on every PR and changes to the
+  // shape can break downstream regexes / dashboards / archived PRs.
+  //
+  // If a snapshot here intentionally changes, update it deliberately and
+  // note the rationale in CHANGELOG.
+
+  const origWorkflow = process.env.GITHUB_WORKFLOW
+  const origJob = process.env.GITHUB_JOB
+
+  beforeEach(() => {
+    // Deterministic marker for snapshots.
+    process.env.GITHUB_WORKFLOW = 'wf'
+    process.env.GITHUB_JOB = 'job'
+    mockedInput.getUseDcoFlag.mockReturnValue('false')
+    mockedInput.getCustomNotSignedPrComment.mockReturnValue('')
+    mockedInput.getCustomAllSignedPrComment.mockReturnValue('')
+    mockedInput.getCustomPrSignComment.mockReturnValue('')
+    mockedInput.suggestRecheck.mockReturnValue('false')
+  })
+
+  afterAll(() => {
+    process.env.GITHUB_WORKFLOW = origWorkflow
+    process.env.GITHUB_JOB = origJob
+  })
+
+  it('CLA — multi-committer, one signed one not', () => {
+    const map = makeMap({
+      signed: [{ name: 'alice', id: 1 }],
+      notSigned: [{ name: 'bob', id: 2 }]
+    })
+    expect(commentContent(false, map)).toMatchSnapshot()
+  })
+
+  it('CLA — single unsigned committer (no per-committer list)', () => {
+    const map = makeMap({
+      signed: [],
+      notSigned: [{ name: 'alice', id: 1 }]
+    })
+    expect(commentContent(false, map)).toMatchSnapshot()
+  })
+
+  it('CLA — unknown committer (not a GitHub user)', () => {
+    const map = makeMap({
+      signed: [],
+      notSigned: [{ name: 'alice', id: 1 }],
+      unknown: [{ name: 'Local Git Author', id: 0 as any }]
+    })
+    expect(commentContent(false, map)).toMatchSnapshot()
+  })
+
+  it('CLA — all signed', () => {
+    const map = makeMap({
+      signed: [
+        { name: 'alice', id: 1 },
+        { name: 'bob', id: 2 }
+      ],
+      notSigned: []
+    })
+    expect(commentContent(true, map)).toMatchSnapshot()
+  })
+
+  it('CLA — with suggest-recheck enabled', () => {
+    mockedInput.suggestRecheck.mockReturnValue('true')
+    const map = makeMap({
+      signed: [{ name: 'alice', id: 1 }],
+      notSigned: [{ name: 'bob', id: 2 }]
+    })
+    expect(commentContent(false, map)).toMatchSnapshot()
+  })
+
+  it('DCO — multi-committer, one signed one not', () => {
+    mockedInput.getUseDcoFlag.mockReturnValue('true')
+    const map = makeMap({
+      signed: [{ name: 'alice', id: 1 }],
+      notSigned: [{ name: 'bob', id: 2 }]
+    })
+    expect(commentContent(false, map)).toMatchSnapshot()
+  })
+
+  it('DCO — all signed', () => {
+    mockedInput.getUseDcoFlag.mockReturnValue('true')
+    const map = makeMap({
+      signed: [{ name: 'alice', id: 1 }],
+      notSigned: []
+    })
+    expect(commentContent(true, map)).toMatchSnapshot()
+  })
+})
