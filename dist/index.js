@@ -200,9 +200,16 @@ async function run() {
             input.lockPullRequestAfterMerge() == 'true') {
             return (0, pullRequestLock_1.lockPullRequest)();
         }
-        else {
-            await (0, setupClaCheck_1.setupClaCheck)();
+        // Comments on a closed PR previously ran the full sign-check flow and
+        // surfaced confusing failures. Short-circuit instead — once the PR is
+        // closed, no new signatures matter and any lock-after-merge handling
+        // already happened above.
+        if (github_1.context.eventName === 'issue_comment' &&
+            github_1.context.payload?.issue?.state === 'closed') {
+            core.info('Skipping: issue_comment against a closed pull request.');
+            return;
         }
+        await (0, setupClaCheck_1.setupClaCheck)();
     }
     catch (error) {
         if (error instanceof Error)
@@ -350,7 +357,14 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
     const pullRequestNo = github_1.context.issue.number;
     const owner = github_1.context.issue.owner;
     const repo = github_1.context.issue.repo;
-    claFileContent?.signedContributors.push(...reactedCommitters.newSigned);
+    if (claFileContent && !Array.isArray(claFileContent.signedContributors)) {
+        claFileContent.signedContributors = [];
+    }
+    // Dedup against existing ids — without this, signing twice from the same PR
+    // creates duplicate entries in cla.json.
+    const existingIds = new Set((claFileContent?.signedContributors ?? []).map(c => c.id));
+    const toAdd = reactedCommitters.newSigned.filter(c => !existingIds.has(c.id));
+    claFileContent?.signedContributors.push(...toAdd);
     let contentString = JSON.stringify(claFileContent, null, 2);
     let contentBinary = Buffer.from(contentString).toString('base64');
     await octokitInstance.rest.repos.createOrUpdateFileContents({
@@ -433,6 +447,9 @@ async function reRunLastWorkFlowIfRequired() {
     }
     const branch = await getBranchOfPullRequest();
     const workflowId = await getSelfWorkflowId();
+    if (workflowId === null) {
+        return;
+    }
     const runs = await listWorkflowRunsInBranch(branch, workflowId);
     if (runs.data.total_count > 0) {
         const run = runs.data.workflow_runs[0].id;
@@ -451,6 +468,10 @@ async function getBranchOfPullRequest() {
     });
     return pullRequest.data.head.ref;
 }
+// Returns null if the workflow cannot be located by name. Throwing here used
+// to fail the otherwise-green sign flow when context.workflow didn't match a
+// workflow's name field (e.g. unnamed workflows, name collisions, transient
+// list pagination edge cases).
 async function getSelfWorkflowId() {
     const perPage = 30;
     let hasNextPage = true;
@@ -469,7 +490,8 @@ async function getSelfWorkflowId() {
             return workflow.id;
         }
     }
-    throw new Error(`Unable to locate this workflow's ID in this repository, can't trigger job..`);
+    core.warning(`Could not locate workflow "${github_1.context.workflow}" by name; skipping post-sign re-run of any failed check.`);
+    return null;
 }
 async function listWorkflowRunsInBranch(branch, workflowId) {
     console.debug(branch);
@@ -666,9 +688,13 @@ function dco(signed, committerMap) {
    `;
     if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
         text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the DCO.`;
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: (${signedCommitter.name})[https://github.com/${signedCommitter.name}]`; });
+        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`; });
         committerMap.notSigned.forEach(unsignedCommitter => {
-            text += `<br/>:x: @${unsignedCommitter.name}`;
+            // Only @-mention if we resolved a real GitHub user. Otherwise
+            // `name` is the raw git author name and `@`-prefixing it can ping
+            // an unrelated GitHub login that happens to match.
+            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name;
+            text += `<br/>:x: ${mention}`;
         });
         text += '<br/>';
     }
@@ -703,9 +729,13 @@ function cla(signed, committerMap) {
    `;
     if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
         text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the CLA.`;
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: (${signedCommitter.name})[https://github.com/${signedCommitter.name}]`; });
+        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`; });
         committerMap.notSigned.forEach(unsignedCommitter => {
-            text += `<br/>:x: @${unsignedCommitter.name}`;
+            // Only @-mention if we resolved a real GitHub user. Otherwise
+            // `name` is the raw git author name and `@`-prefixing it can ping
+            // an unrelated GitHub login that happens to match.
+            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name;
+            text += `<br/>:x: ${mention}`;
         });
         text += '<br/>';
     }
@@ -938,7 +968,7 @@ async function setupClaCheck() {
         }
     }
     catch (err) {
-        core.setFailed(`Could not update the JSON file: ${err.message}`);
+        core.setFailed(`Could not update the JSON file: ${err.message}. Make sure the branch where signatures are stored is NOT protected.`);
     }
 }
 async function getCLAFileContentandSHA(committers, committerMap) {
@@ -947,7 +977,10 @@ async function getCLAFileContentandSHA(committers, committerMap) {
         result = await (0, persistence_1.getFileContent)();
     }
     catch (error) {
-        if (error.status === "404") {
+        // Octokit returns status as a number. Historically this was compared to
+        // the string "404" — a typo that made the auto-create path dead code,
+        // forcing every first-time install to manually pre-create cla.json.
+        if (error.status === 404) {
             return createClaFileAndPRComment(committers, committerMap);
         }
         else {
@@ -976,9 +1009,12 @@ async function createClaFileAndPRComment(committers, committerMap) {
 }
 function prepareCommiterMap(committers, claFileContent) {
     let committerMap = getInitialCommittersMap();
-    committerMap.notSigned = committers.filter(committer => !claFileContent?.signedContributors.some(cla => committer.id === cla.id));
-    committerMap.signed = committers.filter(committer => claFileContent?.signedContributors.some(cla => committer.id === cla.id));
-    committers.map(committer => {
+    // Defensive default: a malformed signatures file (e.g. `{}` or a partial
+    // write) used to throw here when signedContributors was undefined.
+    const signedList = claFileContent?.signedContributors ?? [];
+    committerMap.notSigned = committers.filter(committer => !signedList.some(cla => committer.id === cla.id));
+    committerMap.signed = committers.filter(committer => signedList.some(cla => committer.id === cla.id));
+    committers.forEach(committer => {
         if (!committer.id) {
             committerMap.unknown.push(committer);
         }
@@ -1033,7 +1069,7 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.suggestRecheck = exports.lockPullRequestAfterMerge = exports.getCustomPrSignComment = exports.getUseDcoFlag = exports.getCustomAllSignedPrComment = exports.getCustomNotSignedPrComment = exports.getCreateFileCommitMessage = exports.getSignedCommitMessage = exports.getEmptyCommitFlag = exports.getAllowListItem = exports.getBranch = exports.getPathToDocument = exports.getPathToSignatures = exports.getRemoteOrgName = exports.getRemoteRepoName = void 0;
+exports.suggestRecheck = exports.lockPullRequestAfterMerge = exports.getCustomPrSignComment = exports.getUseDcoFlag = exports.getCustomAllSignedPrComment = exports.getCustomNotSignedPrComment = exports.getCreateFileCommitMessage = exports.getSignedCommitMessage = exports.getAllowListItem = exports.getBranch = exports.getPathToDocument = exports.getPathToSignatures = exports.getRemoteOrgName = exports.getRemoteRepoName = void 0;
 const core = __importStar(__nccwpck_require__(7484));
 const getRemoteRepoName = () => {
     return core.getInput('remote-repository-name', { required: false });
@@ -1051,8 +1087,6 @@ const getBranch = () => core.getInput('branch', { required: false });
 exports.getBranch = getBranch;
 const getAllowListItem = () => core.getInput('allowlist', { required: false });
 exports.getAllowListItem = getAllowListItem;
-const getEmptyCommitFlag = () => core.getInput('empty-commit-flag', { required: false });
-exports.getEmptyCommitFlag = getEmptyCommitFlag;
 const getSignedCommitMessage = () => core.getInput('signed-commit-message', { required: false });
 exports.getSignedCommitMessage = getSignedCommitMessage;
 const getCreateFileCommitMessage = () => core.getInput('create-file-commit-message', { required: false });

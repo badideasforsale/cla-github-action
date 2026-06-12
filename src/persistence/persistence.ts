@@ -47,7 +47,16 @@ export async function updateFile(
   const owner = context.issue.owner
   const repo = context.issue.repo
 
-  claFileContent?.signedContributors.push(...reactedCommitters.newSigned)
+  if (claFileContent && !Array.isArray(claFileContent.signedContributors)) {
+    claFileContent.signedContributors = []
+  }
+  // Dedup against existing ids — without this, signing twice from the same PR
+  // creates duplicate entries in cla.json.
+  const existingIds = new Set<number>(
+    (claFileContent?.signedContributors ?? []).map(c => c.id)
+  )
+  const toAdd = reactedCommitters.newSigned.filter(c => !existingIds.has(c.id))
+  claFileContent?.signedContributors.push(...toAdd)
   let contentString = JSON.stringify(claFileContent, null, 2)
   let contentBinary = Buffer.from(contentString).toString('base64')
   await octokitInstance.rest.repos.createOrUpdateFileContents({

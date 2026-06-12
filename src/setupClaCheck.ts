@@ -52,7 +52,9 @@ export async function setupClaCheck() {
       )
     }
   } catch (err) {
-    core.setFailed(`Could not update the JSON file: ${err.message}`)
+    core.setFailed(
+      `Could not update the JSON file: ${err.message}. Make sure the branch where signatures are stored is NOT protected.`
+    )
   }
 }
 
@@ -64,7 +66,10 @@ async function getCLAFileContentandSHA(
   try {
     result = await getFileContent()
   } catch (error) {
-    if (error.status === "404") {
+    // Octokit returns status as a number. Historically this was compared to
+    // the string "404" — a typo that made the auto-create path dead code,
+    // forcing every first-time install to manually pre-create cla.json.
+    if (error.status === 404) {
       return createClaFileAndPRComment(committers, committerMap)
     } else {
       throw new Error(
@@ -116,14 +121,17 @@ function prepareCommiterMap(
 ): CommitterMap {
   let committerMap = getInitialCommittersMap()
 
+  // Defensive default: a malformed signatures file (e.g. `{}` or a partial
+  // write) used to throw here when signedContributors was undefined.
+  const signedList: { id: number }[] = claFileContent?.signedContributors ?? []
+
   committerMap.notSigned = committers.filter(
-    committer =>
-      !claFileContent?.signedContributors.some(cla => committer.id === cla.id)
+    committer => !signedList.some(cla => committer.id === cla.id)
   )
   committerMap.signed = committers.filter(committer =>
-    claFileContent?.signedContributors.some(cla => committer.id === cla.id)
+    signedList.some(cla => committer.id === cla.id)
   )
-  committers.map(committer => {
+  committers.forEach(committer => {
     if (!committer.id) {
       committerMap.unknown.push(committer)
     }

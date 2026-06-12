@@ -12,6 +12,9 @@ export async function reRunLastWorkFlowIfRequired() {
 
   const branch = await getBranchOfPullRequest()
   const workflowId = await getSelfWorkflowId()
+  if (workflowId === null) {
+    return
+  }
   const runs = await listWorkflowRunsInBranch(branch, workflowId)
 
   if (runs.data.total_count > 0) {
@@ -37,7 +40,11 @@ async function getBranchOfPullRequest(): Promise<string> {
   return pullRequest.data.head.ref
 }
 
-async function getSelfWorkflowId(): Promise<number> {
+// Returns null if the workflow cannot be located by name. Throwing here used
+// to fail the otherwise-green sign flow when context.workflow didn't match a
+// workflow's name field (e.g. unnamed workflows, name collisions, transient
+// list pagination edge cases).
+async function getSelfWorkflowId(): Promise<number | null> {
   const perPage = 30
   let hasNextPage = true
 
@@ -62,9 +69,10 @@ async function getSelfWorkflowId(): Promise<number> {
     }
   }
 
-  throw new Error(
-    `Unable to locate this workflow's ID in this repository, can't trigger job..`
+  core.warning(
+    `Could not locate workflow "${context.workflow}" by name; skipping post-sign re-run of any failed check.`
   )
+  return null
 }
 
 async function listWorkflowRunsInBranch(

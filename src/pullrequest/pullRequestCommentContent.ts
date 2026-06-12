@@ -37,9 +37,13 @@ function dco(signed: boolean, committerMap: CommitterMap): string {
 
     if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
         text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the DCO.`
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: (${signedCommitter.name})[https://github.com/${signedCommitter.name}]` })
+        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})` })
         committerMap.notSigned.forEach(unsignedCommitter => {
-            text += `<br/>:x: @${unsignedCommitter.name}`
+            // Only @-mention if we resolved a real GitHub user. Otherwise
+            // `name` is the raw git author name and `@`-prefixing it can ping
+            // an unrelated GitHub login that happens to match.
+            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name
+            text += `<br/>:x: ${mention}`
         })
         text += '<br/>'
     }
@@ -82,9 +86,13 @@ function cla(signed: boolean, committerMap: CommitterMap): string {
 
     if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
         text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the CLA.`
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: (${signedCommitter.name})[https://github.com/${signedCommitter.name}]` })
+        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})` })
         committerMap.notSigned.forEach(unsignedCommitter => {
-            text += `<br/>:x: @${unsignedCommitter.name}`
+            // Only @-mention if we resolved a real GitHub user. Otherwise
+            // `name` is the raw git author name and `@`-prefixing it can ping
+            // an unrelated GitHub login that happens to match.
+            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name
+            text += `<br/>:x: ${mention}`
         })
         text += '<br/>'
     }

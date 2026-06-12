@@ -22,8 +22,6 @@ inputs:
     description: "Fully qualified web link to the document - example: https://github.com/cla-assistant/github-action/blob/master/SAPCLA.md"
   signed-commit-message:
     description: "Commit message when a new contributor signs the CLA in a PR"
-  signed-empty-commit-message:
-    description: "Commit message when a new contributor signs the CLA (empty)"
   create-file-commit-message:
     description: "Commit message when a new file is created"
   custom-notsigned-prcomment:

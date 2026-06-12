@@ -49,6 +49,19 @@ This section tracks work toward v3.0.0.
 - Two latent null-safety bugs surfaced by stricter octokit v8 types:
   - `pullRequestComment.ts:65,67` — `comment.body.match()` would throw when the comment had no body (rare but real).
   - `signatureComment.ts:21-24` — accessing `prComment.user.login` would throw when the comment author had been deleted; `body.trim()` likewise.
+- **Auto-create signatures file actually works now** ([#155](https://github.com/contributor-assistant/github-action/issues/155)). `setupClaCheck.ts:67` compared `error.status === "404"` (string) but octokit returns it as a number, so the create path was unreachable. Every first-time install had to hand-create `cla.json` to get past the cryptic "Could not retrieve repository contents" error. One-character fix.
+- **Markdown links in the bot comment** ([#67](https://github.com/contributor-assistant/github-action/issues/67), [PR #171](https://github.com/contributor-assistant/github-action/pull/171)). Signed-committer entries used `(name)[url]` (invalid Markdown) instead of `[name](url)`. Affected both CLA and DCO branches.
+- **Bot no longer @-mentions random GitHub users** ([#177](https://github.com/contributor-assistant/github-action/issues/177), dup [#91](https://github.com/contributor-assistant/github-action/issues/91)). When a commit author couldn't be resolved to a GitHub user, the comment rendered `@<raw-git-name>` and could ping an unrelated GitHub login that happened to match. The notSigned list now omits the `@`-prefix for committers without a resolved id; they're still listed by name and surfaced in the "seems not to be a GitHub user" line.
+- **Duplicate signature entries** ([#179](https://github.com/contributor-assistant/github-action/issues/179)). `persistence.updateFile` now dedups `newSigned` against existing `signedContributors[].id` before push.
+- **Malformed signatures file no longer throws.** `setupClaCheck.prepareCommiterMap` and `persistence.updateFile` defensively default `signedContributors` to `[]` when the file is `{}` or otherwise missing the key.
+- **Clearer protected-branch error** ([#131](https://github.com/contributor-assistant/github-action/issues/131), [PR #133](https://github.com/contributor-assistant/github-action/pull/133)). The "Could not update the JSON file" error now points contributors at branch-protection settings, matching the message already used by the create-file path.
+- **Skip noisy failures on comments against closed PRs** (closed [#72](https://github.com/contributor-assistant/github-action/issues/72)). `main.ts` short-circuits when the event is `issue_comment` and the parent PR is already closed.
+- **Soft-fail when the post-sign workflow re-run can't find itself** ([#135](https://github.com/contributor-assistant/github-action/issues/135)). `getSelfWorkflowId` now returns `null` + emits `core.warning` instead of throwing; the sign flow stays green.
+
+### Removed (cleanup)
+
+- `signed-empty-commit-message` input declared in `action.yml` but unused in source.
+- `getEmptyCommitFlag` getter reading an undeclared `empty-commit-flag` input — orphan on both sides.
 
 ## [2.6.1] and earlier
 
