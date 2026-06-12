@@ -3,7 +3,7 @@ name: Add Contributors to readme file
 on:
     push:
         branches:
-            - master
+            - main
 
 jobs:
     contrib-readme-job:
