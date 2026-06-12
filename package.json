@@ -3,7 +3,7 @@
   "version": "3.0.0-dev",
   "description": "GitHub Action for handling CLA / DCO signatures via PR comments. Maintained fork of contributor-assistant/github-action.",
   "scripts": {
-    "build": "tsc && ncc build lib/main.js --license licenses.txt --out dist",
+    "build": "tsc --noEmit && esbuild src/main.ts --bundle --platform=node --target=node24 --format=cjs --outfile=dist/index.js",
     "test": "jest",
     "validate-actions": "action-validator action.yml .github/workflows/*.yml .github/workflows/*.yaml"
   },
@@ -21,13 +21,13 @@
     "node": ">=24"
   },
   "dependencies": {
-    "@actions/core": "^2.0.3",
-    "@actions/github": "^8.0.1"
+    "@actions/core": "^3.0.1",
+    "@actions/github": "^9.1.1"
   },
   "devDependencies": {
     "@types/jest": "^29.5.14",
     "@types/node": "^22.19.21",
-    "@vercel/ncc": "^0.44.0",
+    "esbuild": "^0.28.1",
     "jest": "^29.7.0",
     "ts-jest": "^29.4.11",
     "typescript": "^5.9.3"

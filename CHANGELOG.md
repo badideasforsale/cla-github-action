@@ -19,8 +19,9 @@ This section tracks work toward v3.0.0.
 ### Changed
 
 - **Action runtime:** `node20` → `node24` (matches `actions/checkout@v6`, `actions/setup-node@v6`).
-- **Dependencies:** `@actions/core` ^1.10 → ^2.0; `@actions/github` ^4.0 → ^8.0 (the last CJS-compatible majors; v3/v9 are ESM-only and require a separate migration).
-- **Toolchain:** TypeScript ^4.9 → ^5.9; `@vercel/ncc` ^0.38 → ^0.44; `ts-jest` ^29.0 → ^29.4; `@types/node` ^18 → ^22; explicit `jest` ^29.7 + `@types/jest`.
+- **Bundler:** `@vercel/ncc` → `esbuild`. esbuild handles ESM-deps → CJS-bundle interop cleanly, which was the wall we hit pinning to last-CJS majors of `@actions/core` and `@actions/github`. Side benefits: bundle is ~25% smaller (1.27 MB → 982 KB) and the build is ~20× faster (~525 ms → ~25 ms). The TS source stays CJS; only the bundler boundary changed.
+- **Dependencies:** `@actions/core` ^1.10 → **^3.0** (ESM-only — unblocked by esbuild); `@actions/github` ^4.0 → **^9.1** (ESM-only). Now on the latest majors across the board. The "ESM migration deferred" item from earlier in this Unreleased section is no longer outstanding — for a bundled action, esbuild-with-CJS-output is the steady state.
+- **Toolchain:** TypeScript ^4.9 → ^5.9; `ts-jest` ^29.0 → ^29.4; `@types/node` ^18 → ^22; explicit `jest` ^29.7 + `@types/jest`.
 - **CI workflows:** rewritten. Single Node 24.x build matrix. All third-party actions SHA-pinned with version-tag comments. Least-privilege `permissions:` blocks on every job. `pull_request_target` and overbroad `branches: '*'` triggers removed.
 - **CodeQL:** language switched to `javascript-typescript`; explicit `security-events: write` permission; autobuild step dropped (unnecessary for JS/TS).
 - Build script: `ncc build` now takes an explicit entry path instead of relying on a misleading `main` field.

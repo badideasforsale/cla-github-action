@@ -1,15 +1,19 @@
-import { context } from '@actions/github'
+import { context, getOctokit } from '@actions/github'
 
 import { ReactedCommitterMap } from '../interfaces'
-import { GitHub } from '@actions/github/lib/utils'
 import { getDefaultOctokitClient, getPATOctokit } from '../octokit'
+
+// Derive the octokit instance type from getOctokit's return rather than
+// importing from `@actions/github/lib/utils`, which became an internal-only
+// path in v9.
+type OctokitInstance = ReturnType<typeof getOctokit>
 
 import * as input from '../shared/getInputs'
 import { buildCommitMessage } from '../shared/substituteCommitMessage'
 import { getPullRequestNumber } from '../shared/getPullRequestNumber'
 
 export async function getFileContent(): Promise<any> {
-  const octokitInstance: InstanceType<typeof GitHub> =
+  const octokitInstance: OctokitInstance =
     isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient()
 
   const result = await octokitInstance.rest.repos.getContent({
@@ -22,7 +26,7 @@ export async function getFileContent(): Promise<any> {
 }
 
 export async function createFile(contentBinary): Promise<any> {
-  const octokitInstance: InstanceType<typeof GitHub> =
+  const octokitInstance: OctokitInstance =
     isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient()
 
   return octokitInstance.rest.repos.createOrUpdateFileContents({
@@ -42,7 +46,7 @@ export async function updateFile(
   claFileContent,
   reactedCommitters: ReactedCommitterMap
 ): Promise<any> {
-  const octokitInstance: InstanceType<typeof GitHub> =
+  const octokitInstance: OctokitInstance =
     isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient()
 
   const pullRequestNo = getPullRequestNumber()
