@@ -16,17 +16,27 @@ This is a TypeScript GitHub Action bundled with `@vercel/ncc` into a single `dis
 ### Setup
 
 ```sh
-npm ci          # install deps from package-lock.json
-npm run build   # tsc + ncc → dist/index.js
-npm test        # jest (passWithNoTests until M2 lands)
+npm ci                       # install deps from package-lock.json
+npm run build                # tsc + ncc → dist/index.js
+npm test                     # jest (passWithNoTests until M2 lands)
+npm run validate-actions     # action-validator on action.yml + workflows
 ```
 
 Node 24 is required (see `engines.node` in `package.json`). The action runtime is also Node 24 (`action.yml`: `using: node24`).
+
+### `action-validator`
+
+Validates `action.yml` and `.github/workflows/*.yml` against the schemas GitHub Actions actually accepts — catches typos, deprecated keys, and unsupported `using:` values that would only surface at runtime.
+
+Install: `cargo install action-validator` or `brew install action-validator`. **Minimum version: 0.9.0** — earlier releases don't know about `node24` and will reject `action.yml`.
+
+CI runs the same validator at v0.9.0 (SHA-pinned in `nodejs.yml`).
 
 ### Pre-PR checklist
 
 - [ ] `npm run build` succeeded and you committed any `dist/` changes
 - [ ] `npm test` passes
+- [ ] `npm run validate-actions` passes
 - [ ] Commit message describes the *why* (the *what* is in the diff)
 
 ### Architecture

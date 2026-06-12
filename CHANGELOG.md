@@ -29,8 +29,13 @@ This section tracks work toward v3.0.0.
 
 - `verify-dist` CI job that rebuilds and fails the PR if `dist/` is stale (replaces the husky pre-commit hook).
 - `dependency-review` CI job on PRs (`actions/dependency-review-action@v5`).
+- `npm run validate-actions` and a CI step using `mpalmer/action-validator@v0.9.0` — validates `action.yml` and workflow YAML against the schemas GitHub Actions actually accepts. Requires `action-validator` v0.9.0 locally (earlier versions reject `node24`).
 - New `SECURITY.md` documenting GitHub private vulnerability reporting, scope, and supply-chain hygiene.
 - `engines.node: ">=24"` and explicit `repository.url` in `package.json`.
+
+### Operational
+
+- **Workflows are temporarily disabled** (`gh workflow disable`) to suppress noisy failed-build notifications during the v3 WIP. They will be re-enabled before v3 ships (see plan M7.8).
 
 ### Removed
 

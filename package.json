@@ -4,7 +4,8 @@
   "description": "GitHub Action for handling CLA / DCO signatures via PR comments. Maintained fork of contributor-assistant/github-action.",
   "scripts": {
     "build": "tsc && ncc build lib/main.js --license licenses.txt --out dist",
-    "test": "jest"
+    "test": "jest",
+    "validate-actions": "action-validator action.yml .github/workflows/*.yml .github/workflows/*.yaml"
   },
   "repository": {
     "type": "git",
