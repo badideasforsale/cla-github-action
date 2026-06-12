@@ -23931,6 +23931,16 @@ async function getRepoOrgMembers() {
 
 // src/shared/getPullRequestNumber.ts
 function getPullRequestNumber() {
+  const fromInput = getInput("pull-request-number");
+  if (fromInput) {
+    const parsed = parseInt(fromInput, 10);
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed;
+    }
+    warning(
+      `Invalid pull-request-number input "${fromInput}"; falling back to context.issue.number.`
+    );
+  }
   return context2.issue.number;
 }
 

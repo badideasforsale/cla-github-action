@@ -1,17 +1,30 @@
 import { context } from '@actions/github'
+import * as core from '@actions/core'
 
 /**
  * Centralized lookup for the PR number this action is operating on.
  *
- * Today this is always `context.issue.number` — the value GitHub sets when
- * the workflow is triggered from a PR event. M5.1 of the v3 plan adds a
- * `pull-request-number` action input so the action can be driven from
- * `workflow_run` and other non-PR triggers; that future override will land
- * here without needing to revisit every call site.
+ * Resolution order:
+ *   1. The `pull-request-number` action input, if set to a valid positive integer.
+ *      This is the M5.1 override that lets the action be driven from
+ *      `workflow_run` (or any other event whose payload doesn't carry a PR
+ *      number directly).
+ *   2. `context.issue.number` — the value GitHub populates from a `pull_request`
+ *      or `pull_request_target` trigger.
  *
- * Every call site that was previously reading `context.issue.number`
- * directly now routes through this helper.
+ * If the input is set but malformed, we warn and fall through to the context.
+ * Bad input never silently routes the action to PR #0 or NaN.
  */
 export function getPullRequestNumber(): number {
+  const fromInput = core.getInput('pull-request-number')
+  if (fromInput) {
+    const parsed = parseInt(fromInput, 10)
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return parsed
+    }
+    core.warning(
+      `Invalid pull-request-number input "${fromInput}"; falling back to context.issue.number.`
+    )
+  }
   return context.issue.number
 }

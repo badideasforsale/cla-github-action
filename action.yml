@@ -42,6 +42,9 @@ inputs:
   suggest-recheck:
     description: "Controls whether or not the action's comment should suggest that users comment `recheck`."
     default: "true"
+  pull-request-number:
+    description: "Override the PR number the action operates on. Default is `context.issue.number` (the PR that triggered the workflow). Required when the workflow is triggered by `workflow_run` or any non-PR event, since those payloads don't carry a PR number directly."
+    default: ""
 runs:
   using: "node24"
   main: 'dist/index.js'
