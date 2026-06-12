@@ -74,6 +74,23 @@ This section tracks work toward v3.0.0.
 - **`getPullRequestNumber()` helper.** New `src/shared/getPullRequestNumber.ts`; 11 sites that previously read `context.issue.number` directly now route through it. Today it wraps `context.issue.number` 1:1 — the abstraction sets up M5.1 (the `pull-request-number` input for `workflow_run` triggers).
 - **`buildCommitMessage()` helper.** Centralized the `$contributorName` / `$pullRequestNo` / `$owner` / `$repo` substitution that was inlined in `persistence.ts`. The new helper uses a global regex so templates referencing the same token twice now replace both sites (the prior `.replace('$contributorName', ...)` only touched the first).
 
+### Added (M4)
+
+- **`exempt-repo-org-members` input** ([#100](https://github.com/contributor-assistant/github-action/issues/100), inspired by [PR #157](https://github.com/contributor-assistant/github-action/pull/157)). When set to `"true"`, members of the repository's owning organization are auto-allowlisted and don't need to sign. Public-org members are visible to the default `GITHUB_TOKEN`; private members require a token with `read:org` scope. Failures (user-owned repo, missing scope, network error) emit a warning and fall through — the CLA check is never blocked by the org lookup.
+- **Unsigned-committer details logged to the action output** ([#92](https://github.com/contributor-assistant/github-action/issues/92)). Each unsigned committer's name, email (when present), and GitHub user resolution status is `core.info`-logged so maintainers can identify who still owes a signature — especially useful when the committer can't be resolved to a GitHub login.
+- **`$pathToDocument` substitution in `custom-notsigned-prcomment`** ([#113](https://github.com/contributor-assistant/github-action/issues/113)). Custom comment templates can now reference `$pathToDocument` and `$you`; both are replaced everywhere they appear.
+
+### Fixed (M4)
+
+- **Sign phrase in email-reply comments is now detected** ([#19](https://github.com/contributor-assistant/github-action/issues/19)). The detection regex now uses the `m` flag, so a reply via email — where the sign phrase appears on the first line followed by a quoted previous message — matches.
+
+### Docs (M4)
+
+- **README example: `pull_request_target` security hardening callout.** Explicit warning against combining this action's workflow with `actions/checkout` of the PR head ref — the canonical "pwn request" attack.
+- **README example: `issue_comment` job-level guard.** Adds `if: github.event.issue.pull_request` so the action doesn't fire on plain-issue comments ([#180](https://github.com/contributor-assistant/github-action/issues/180)).
+- **README example: forgiving sign-comment check.** Replaced exact `==` match with `contains(...)` so trailing whitespace, emoji, or quoted email replies still trigger the workflow ([#57](https://github.com/contributor-assistant/github-action/issues/57)).
+- **Allowlist case-insensitivity** ([#169](https://github.com/contributor-assistant/github-action/issues/169)) — implementation landed in M3.2's `REFACTOR-ALLOWLIST`; called out here for clarity.
+
 ## [2.6.1] and earlier
 
 See the upstream history at [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action/releases) for releases before this fork picked up maintenance.

@@ -41,9 +41,15 @@ permissions:
 jobs:
   CLAAssistant:
     runs-on: ubuntu-latest
+    # Skip plain-issue comments — fire only on pull-request comments and pull_request_target.
+    if: (github.event_name == 'pull_request_target') || (github.event_name == 'issue_comment' && github.event.issue.pull_request)
     steps:
       - name: "CLA Assistant"
-        if: (github.event.comment.body == 'recheck' || github.event.comment.body == 'I have read the CLA Document and I hereby sign the CLA') || github.event_name == 'pull_request_target'
+        # `contains()` is forgiving about trailing whitespace, line breaks, and quoted email replies — the action's own regex does the precise matching.
+        if: |
+          github.event_name == 'pull_request_target' ||
+          github.event.comment.body == 'recheck' ||
+          contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')
         uses: contributor-assistant/github-action@v2.6.1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -67,8 +73,18 @@ jobs:
           #custom-allsigned-prcomment: 'pull request comment when all contributors has signed, defaults to **CLA Assistant Lite bot** All Contributors have signed the CLA.'
           #lock-pullrequest-aftermerge: false - if you don't want this bot to automatically lock the pull request after merging (default - true)
           #use-dco-flag: true - If you are using DCO instead of CLA
+          #exempt-repo-org-members: true - if true, members of the repo's owning org are auto-allowlisted (requires read:org-scoped PAT for private orgs)
 
 ```
+
+> [!WARNING]
+> **Security hardening — read this before adding more steps to the CLA workflow.**
+>
+> This action uses [`pull_request_target`](https://docs.github.com/en/actions/reference/events-that-trigger-workflows#pull_request_target) so it can write signatures and post comments on PRs opened from forks. Workflows triggered by `pull_request_target` run in the base repository's context **with access to secrets**.
+>
+> **Do not add `actions/checkout` against the PR head ref (`${{ github.event.pull_request.head.sha }}` or `${{ github.event.pull_request.head.ref }}`) in this workflow.** Combining `pull_request_target` with checking out untrusted fork code lets the fork author execute arbitrary code with your repository secrets — the canonical "pwn request" attack. See GitHub Security Lab's [Preventing pwn requests](https://securitylab.github.com/research/github-actions-preventing-pwn-requests/).
+>
+> This action itself never checks out fork code; it operates on PR metadata and comments via the API. The warning is for any other steps you might add to the same workflow file.
 
 ##### Demo for step 1
 
