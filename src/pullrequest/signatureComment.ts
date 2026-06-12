@@ -2,6 +2,7 @@ import { octokit } from '../octokit'
 import { context } from '@actions/github'
 import { CommitterMap, CommittersDetails, ReactedCommitterMap } from '../interfaces'
 import { getUseDcoFlag, getCustomPrSignComment } from '../shared/getInputs'
+import { getPullRequestNumber } from '../shared/getPullRequestNumber'
 
 import * as core from '@actions/core'
 
@@ -11,7 +12,7 @@ export default async function signatureWithPRComment(committerMap: CommitterMap,
     let prResponse = await octokit.rest.issues.listComments({
         owner: context.repo.owner,
         repo: context.repo.repo,
-        issue_number: context.issue.number
+        issue_number: getPullRequestNumber()
     })
     let listOfPRComments = [] as CommittersDetails[]
     let filteredListOfPRComments = [] as CommittersDetails[]
@@ -28,7 +29,7 @@ export default async function signatureWithPRComment(committerMap: CommitterMap,
             body: prComment.body?.trim().toLowerCase() ?? '',
             created_at: prComment.created_at,
             repoId: repoId,
-            pullRequestNo: context.issue.number
+            pullRequestNo: getPullRequestNumber()
         })
     })
     listOfPRComments.map(comment => {

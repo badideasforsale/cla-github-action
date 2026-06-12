@@ -1,12 +1,13 @@
 import { octokit } from '../octokit'
 import { context } from '@actions/github'
 import signatureWithPRComment from './signatureComment'
-import { commentContent } from './pullRequestCommentContent'
+import { commentContent, commentMarker } from './pullRequestCommentContent'
 import {
   CommitterMap,
   CommittersDetails
 } from '../interfaces'
 import { getUseDcoFlag } from '../shared/getInputs'
+import { getPullRequestNumber } from '../shared/getPullRequestNumber'
 
 
 
@@ -41,7 +42,7 @@ async function createComment(signed: boolean, committerMap: CommitterMap): Promi
   await octokit.rest.issues.createComment({
     owner: context.repo.owner,
     repo: context.repo.repo,
-    issue_number: context.issue.number,
+    issue_number: getPullRequestNumber(),
     body: commentContent(signed, committerMap)
   }).catch(error => { throw new Error(`Error occured when creating a pull request comment: ${error.message}`) })
 }
@@ -57,15 +58,24 @@ async function updateComment(signed: boolean, committerMap: CommitterMap, claBot
 
 async function getComment() {
   try {
-    const response = await octokit.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: context.issue.number })
+    const response = await octokit.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: getPullRequestNumber() })
 
-    //TODO: check the below regex
-    // using a `string` true or false purposely as github action input cannot have a boolean value
-    if (getUseDcoFlag() === 'true') {
-      return response.data.find(comment => comment.body?.match(/.*DCO Assistant Lite bot.*/m))
-    } else if (getUseDcoFlag() === 'false') {
-      return response.data.find(comment => comment.body?.match(/.*CLA Assistant Lite bot.*/m))
-    }
+    // Prefer comments with this job's hidden HTML-comment marker — keeps
+    // multiple CLA/DCO jobs in one workflow from stomping each other
+    // (BUG-COMMENT-MARKER / upstream #153). Falls back to the legacy
+    // substring match for comments posted before markers existed; on the
+    // next update those comments will be stamped with a marker.
+    const marker = commentMarker()
+    const markerMatch = response.data.find(comment =>
+      comment.body?.includes(marker)
+    )
+    if (markerMatch) return markerMatch
+
+    const isDco = getUseDcoFlag() === 'true'
+    const legacy = isDco
+      ? /.*DCO Assistant Lite bot.*/m
+      : /.*CLA Assistant Lite bot.*/m
+    return response.data.find(comment => comment.body?.match(legacy))
   } catch (error) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error.message}`)
   }

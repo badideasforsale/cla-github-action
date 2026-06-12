@@ -62,6 +62,17 @@ This section tracks work toward v3.0.0.
 
 - `signed-empty-commit-message` input declared in `action.yml` but unused in source.
 - `getEmptyCommitFlag` getter reading an undeclared `empty-commit-flag` input — orphan on both sides.
+- `src/shared/pr-sign-comment.ts` — collapsed into the unified comment template.
+
+### Refactored (no observable change)
+
+- **Comment template consolidated.** `cla()` and `dco()` in `pullRequestCommentContent.ts` were 95% duplicated — every comment-text bug had to be fixed twice and historically was only fixed once. Replaced with a single template parameterized by `kind: 'cla' | 'dco'`. The DCO branch's 4-star footer typo (`****DCO Assistant Lite bot****`) is preserved to keep rendered output byte-stable for existing PRs.
+- **Hidden HTML-comment marker** (`<!-- cla-lite-bot:<kind>:<workflow>:<job> -->`) appended to every bot comment. The lookup in `pullRequestComment.getComment` prefers this marker, so multiple CLA/DCO jobs in one repo can each find their own comment instead of stomping each other ([#153](https://github.com/contributor-assistant/github-action/issues/153)). Falls back to the legacy substring match for comments posted before markers existed; the next update stamps the marker on, completing migration.
+- **Allowlist matcher rewrite** ([#169](https://github.com/contributor-assistant/github-action/issues/169)). `checkAllowList.ts` rewritten to remove the double-negation tangle (`isUserNotInAllowList`) flagged in `CLAUDE.md`. New behavior:
+  - **Case-insensitive matching** (GitHub usernames are case-insensitive) — the long-standing `Copilot` vs `copilot` mismatch is fixed.
+  - **Wildcards are anchored** (`foo*` matches `foobar` but not `xfoobar`) — the prior unanchored regex would have matched both. Likely-breaking-but-rare case; documented here.
+- **`getPullRequestNumber()` helper.** New `src/shared/getPullRequestNumber.ts`; 11 sites that previously read `context.issue.number` directly now route through it. Today it wraps `context.issue.number` 1:1 — the abstraction sets up M5.1 (the `pull-request-number` input for `workflow_run` triggers).
+- **`buildCommitMessage()` helper.** Centralized the `$contributorName` / `$pullRequestNo` / `$owner` / `$repo` substitution that was inlined in `persistence.ts`. The new helper uses a global regex so templates referencing the same token twice now replace both sites (the prior `.replace('$contributorName', ...)` only touched the first).
 
 ## [2.6.1] and earlier
 

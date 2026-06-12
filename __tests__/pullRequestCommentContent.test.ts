@@ -6,7 +6,7 @@
  *  - BUG-AT-MENTION-GHOST: unsigned committer with no GitHub user id should not be @-mentioned
  *  - sanity: signed/all-signed branches still produce the expected bot signature
  */
-import { commentContent } from '../src/pullrequest/pullRequestCommentContent'
+import { commentContent, commentMarker } from '../src/pullrequest/pullRequestCommentContent'
 import { CommitterMap } from '../src/interfaces'
 import * as input from '../src/shared/getInputs'
 
@@ -19,10 +19,6 @@ jest.mock('../src/shared/getInputs', () => ({
   getCustomPrSignComment: jest.fn(() => ''),
   getPathToDocument: jest.fn(() => 'https://example.com/CLA.md'),
   suggestRecheck: jest.fn(() => 'false')
-}))
-
-jest.mock('../src/shared/pr-sign-comment', () => ({
-  getPrSignComment: jest.fn(() => 'I have read the CLA Document and I hereby sign the CLA')
 }))
 
 const mockedInput = jest.mocked(input)
@@ -119,5 +115,45 @@ describe('commentContent — DCO branch', () => {
     const out = commentContent(true, makeMap())
     expect(out).toContain('All contributors have signed the DCO')
     expect(out).toContain('DCO Assistant Lite bot')
+  })
+})
+
+describe('commentMarker (BUG-COMMENT-MARKER / upstream #153)', () => {
+  const origWorkflow = process.env.GITHUB_WORKFLOW
+  const origJob = process.env.GITHUB_JOB
+
+  afterEach(() => {
+    process.env.GITHUB_WORKFLOW = origWorkflow
+    process.env.GITHUB_JOB = origJob
+    mockedInput.getUseDcoFlag.mockReturnValue('false')
+  })
+
+  it('embeds workflow + job names so two CLA jobs in one repo can be told apart', () => {
+    process.env.GITHUB_WORKFLOW = 'CLA-frontend'
+    process.env.GITHUB_JOB = 'sign-check'
+    expect(commentMarker('cla')).toBe(
+      '<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
+    )
+  })
+
+  it('falls back to "default" when the runner env vars are missing', () => {
+    delete process.env.GITHUB_WORKFLOW
+    delete process.env.GITHUB_JOB
+    expect(commentMarker('cla')).toBe(
+      '<!-- cla-lite-bot:cla:default:default -->'
+    )
+  })
+
+  it('discriminates CLA vs DCO mode in the marker', () => {
+    process.env.GITHUB_WORKFLOW = 'wf'
+    process.env.GITHUB_JOB = 'job'
+    expect(commentMarker('dco')).toBe('<!-- cla-lite-bot:dco:wf:job -->')
+  })
+
+  it('every rendered comment contains the marker', () => {
+    process.env.GITHUB_WORKFLOW = 'wf'
+    process.env.GITHUB_JOB = 'job'
+    const out = commentContent(false, makeMap({ notSigned: [{ name: 'alice', id: 1 }] }))
+    expect(out).toContain('<!-- cla-lite-bot:cla:wf:job -->')
   })
 })

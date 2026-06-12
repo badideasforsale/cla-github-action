@@ -5,6 +5,8 @@ import { GitHub } from '@actions/github/lib/utils'
 import { getDefaultOctokitClient, getPATOctokit } from '../octokit'
 
 import * as input from '../shared/getInputs'
+import { buildCommitMessage } from '../shared/substituteCommitMessage'
+import { getPullRequestNumber } from '../shared/getPullRequestNumber'
 
 export async function getFileContent(): Promise<any> {
   const octokitInstance: InstanceType<typeof GitHub> =
@@ -43,7 +45,7 @@ export async function updateFile(
   const octokitInstance: InstanceType<typeof GitHub> =
     isRemoteRepoOrOrgConfigured() ? getPATOctokit() : getDefaultOctokitClient()
 
-  const pullRequestNo = context.issue.number
+  const pullRequestNo = getPullRequestNumber()
   const owner = context.issue.owner
   const repo = context.issue.repo
 
@@ -64,14 +66,12 @@ export async function updateFile(
     repo: input.getRemoteRepoName() || context.repo.repo,
     path: input.getPathToSignatures(),
     sha,
-    message: input.getSignedCommitMessage()
-      ? input
-          .getSignedCommitMessage()
-          .replace('$contributorName', context.actor)
-          .replace('$pullRequestNo', pullRequestNo.toString())
-          .replace('$owner', owner)
-          .replace('$repo', repo)
-      : `@${context.actor} has signed the CLA in ${owner}/${repo}#${pullRequestNo}`,
+    message: buildCommitMessage(input.getSignedCommitMessage(), {
+      contributorName: context.actor,
+      pullRequestNo,
+      owner,
+      repo
+    }),
     content: contentBinary,
     branch: input.getBranch()
   })

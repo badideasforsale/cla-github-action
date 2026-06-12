@@ -40,23 +40,43 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.matchesAllowlist = matchesAllowlist;
 exports.checkAllowList = checkAllowList;
 const input = __importStar(__nccwpck_require__(7189));
 const escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-function isUserNotInAllowList(committer) {
-    const allowListPatterns = input.getAllowListItem().split(',');
-    return allowListPatterns.filter(function (pattern) {
-        pattern = pattern.trim();
+/**
+ * Returns true if `name` matches any pattern in `allowlistInput`.
+ *
+ * `allowlistInput` is the raw comma-separated string from the action's
+ * `allowlist` input — patterns may include `*` as a wildcard.
+ *
+ * Matching is case-insensitive (BUG-ALLOWLIST-CASE / upstream #169 —
+ * GitHub usernames don't preserve case, so `Copilot` and `copilot` must
+ * compare equal here).
+ *
+ * Wildcards are anchored: a pattern of `foo*` matches `foobar` but not
+ * `barfoo`. The prior implementation used an unanchored test which would
+ * have considered `barfoo` a match — closer to "contains foo" than "starts
+ * with foo".
+ */
+function matchesAllowlist(name, allowlistInput) {
+    if (!allowlistInput)
+        return false;
+    const lower = name.toLowerCase();
+    return allowlistInput.split(',').some(rawPattern => {
+        const pattern = rawPattern.trim().toLowerCase();
+        if (!pattern)
+            return false;
         if (pattern.includes('*')) {
-            const regex = escapeRegExp(pattern).split('\\*').join('.*');
-            return new RegExp(regex).test(committer);
+            const regex = '^' + escapeRegExp(pattern).split('\\*').join('.*') + '$';
+            return new RegExp(regex).test(lower);
         }
-        return pattern === committer;
-    }).length > 0;
+        return pattern === lower;
+    });
 }
 function checkAllowList(committers) {
-    const committersAfterAllowListCheck = committers.filter(committer => committer && !(isUserNotInAllowList !== undefined && isUserNotInAllowList(committer.name)));
-    return committersAfterAllowListCheck;
+    const patterns = input.getAllowListItem();
+    return committers.filter(committer => committer && !matchesAllowlist(committer.name, patterns));
 }
 
 
@@ -71,6 +91,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports["default"] = getCommitters;
 const octokit_1 = __nccwpck_require__(5957);
 const github_1 = __nccwpck_require__(3228);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function getCommitters() {
     try {
         let committers = [];
@@ -115,7 +136,7 @@ async function getCommitters() {
     }`.replace(/ /g, ''), {
             owner: github_1.context.repo.owner,
             name: github_1.context.repo.repo,
-            number: github_1.context.issue.number,
+            number: (0, getPullRequestNumber_1.getPullRequestNumber)(),
             cursor: ''
         });
         response.repository.pullRequest.commits.edges.forEach(edge => {
@@ -123,7 +144,7 @@ async function getCommitters() {
             let user = {
                 name: committer.login || committer.name,
                 id: committer.databaseId || '',
-                pullRequestNo: github_1.context.issue.number
+                pullRequestNo: (0, getPullRequestNumber_1.getPullRequestNumber)()
             };
             if (committers.length === 0 || committers.map((c) => {
                 return c.name;
@@ -330,6 +351,8 @@ exports.updateFile = updateFile;
 const github_1 = __nccwpck_require__(3228);
 const octokit_1 = __nccwpck_require__(5957);
 const input = __importStar(__nccwpck_require__(7189));
+const substituteCommitMessage_1 = __nccwpck_require__(4476);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function getFileContent() {
     const octokitInstance = isRemoteRepoOrOrgConfigured() ? (0, octokit_1.getPATOctokit)() : (0, octokit_1.getDefaultOctokitClient)();
     const result = await octokitInstance.rest.repos.getContent({
@@ -354,7 +377,7 @@ async function createFile(contentBinary) {
 }
 async function updateFile(sha, claFileContent, reactedCommitters) {
     const octokitInstance = isRemoteRepoOrOrgConfigured() ? (0, octokit_1.getPATOctokit)() : (0, octokit_1.getDefaultOctokitClient)();
-    const pullRequestNo = github_1.context.issue.number;
+    const pullRequestNo = (0, getPullRequestNumber_1.getPullRequestNumber)();
     const owner = github_1.context.issue.owner;
     const repo = github_1.context.issue.repo;
     if (claFileContent && !Array.isArray(claFileContent.signedContributors)) {
@@ -372,14 +395,12 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
         repo: input.getRemoteRepoName() || github_1.context.repo.repo,
         path: input.getPathToSignatures(),
         sha,
-        message: input.getSignedCommitMessage()
-            ? input
-                .getSignedCommitMessage()
-                .replace('$contributorName', github_1.context.actor)
-                .replace('$pullRequestNo', pullRequestNo.toString())
-                .replace('$owner', owner)
-                .replace('$repo', repo)
-            : `@${github_1.context.actor} has signed the CLA in ${owner}/${repo}#${pullRequestNo}`,
+        message: (0, substituteCommitMessage_1.buildCommitMessage)(input.getSignedCommitMessage(), {
+            contributorName: github_1.context.actor,
+            pullRequestNo,
+            owner,
+            repo
+        }),
         content: contentBinary,
         branch: input.getBranch()
     });
@@ -438,6 +459,7 @@ Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.reRunLastWorkFlowIfRequired = reRunLastWorkFlowIfRequired;
 const github_1 = __nccwpck_require__(3228);
 const octokit_1 = __nccwpck_require__(5957);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 const core = __importStar(__nccwpck_require__(7484));
 // Note: why this  re-run of the last failed CLA workflow status check is explained this issue https://github.com/cla-assistant/github-action/issues/39
 async function reRunLastWorkFlowIfRequired() {
@@ -464,7 +486,7 @@ async function getBranchOfPullRequest() {
     const pullRequest = await octokit_1.octokit.rest.pulls.get({
         owner: github_1.context.repo.owner,
         repo: github_1.context.repo.repo,
-        pull_number: github_1.context.issue.number
+        pull_number: (0, getPullRequestNumber_1.getPullRequestNumber)()
     });
     return pullRequest.data.head.ref;
 }
@@ -539,6 +561,7 @@ const github_1 = __nccwpck_require__(3228);
 const signatureComment_1 = __importDefault(__nccwpck_require__(3708));
 const pullRequestCommentContent_1 = __nccwpck_require__(8501);
 const getInputs_1 = __nccwpck_require__(7189);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function prCommentSetup(committerMap, committers) {
     const signed = committerMap?.notSigned && committerMap?.notSigned.length === 0;
     try {
@@ -568,7 +591,7 @@ async function createComment(signed, committerMap) {
     await octokit_1.octokit.rest.issues.createComment({
         owner: github_1.context.repo.owner,
         repo: github_1.context.repo.repo,
-        issue_number: github_1.context.issue.number,
+        issue_number: (0, getPullRequestNumber_1.getPullRequestNumber)(),
         body: (0, pullRequestCommentContent_1.commentContent)(signed, committerMap)
     }).catch(error => { throw new Error(`Error occured when creating a pull request comment: ${error.message}`); });
 }
@@ -582,15 +605,21 @@ async function updateComment(signed, committerMap, claBotComment) {
 }
 async function getComment() {
     try {
-        const response = await octokit_1.octokit.rest.issues.listComments({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: github_1.context.issue.number });
-        //TODO: check the below regex
-        // using a `string` true or false purposely as github action input cannot have a boolean value
-        if ((0, getInputs_1.getUseDcoFlag)() === 'true') {
-            return response.data.find(comment => comment.body?.match(/.*DCO Assistant Lite bot.*/m));
-        }
-        else if ((0, getInputs_1.getUseDcoFlag)() === 'false') {
-            return response.data.find(comment => comment.body?.match(/.*CLA Assistant Lite bot.*/m));
-        }
+        const response = await octokit_1.octokit.rest.issues.listComments({ owner: github_1.context.repo.owner, repo: github_1.context.repo.repo, issue_number: (0, getPullRequestNumber_1.getPullRequestNumber)() });
+        // Prefer comments with this job's hidden HTML-comment marker — keeps
+        // multiple CLA/DCO jobs in one workflow from stomping each other
+        // (BUG-COMMENT-MARKER / upstream #153). Falls back to the legacy
+        // substring match for comments posted before markers existed; on the
+        // next update those comments will be stamped with a marker.
+        const marker = (0, pullRequestCommentContent_1.commentMarker)();
+        const markerMatch = response.data.find(comment => comment.body?.includes(marker));
+        if (markerMatch)
+            return markerMatch;
+        const isDco = (0, getInputs_1.getUseDcoFlag)() === 'true';
+        const legacy = isDco
+            ? /.*DCO Assistant Lite bot.*/m
+            : /.*CLA Assistant Lite bot.*/m;
+        return response.data.find(comment => comment.body?.match(legacy));
     }
     catch (error) {
         throw new Error(`Error occured when getting  all the comments of the pull request: ${error.message}`);
@@ -657,98 +686,97 @@ var __importStar = (this && this.__importStar) || (function () {
     };
 })();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.commentMarker = commentMarker;
 exports.commentContent = commentContent;
 const input = __importStar(__nccwpck_require__(7189));
-const pr_sign_comment_1 = __nccwpck_require__(7228);
+function selectedKind() {
+    // GH Action inputs can't be typed booleans; the input is a string literal.
+    return input.getUseDcoFlag() === 'true' ? 'dco' : 'cla';
+}
+/**
+ * Hidden HTML-comment marker appended to every bot comment so the lookup in
+ * pullRequestComment.getComment can disambiguate between multiple CLA/DCO
+ * jobs running in the same repo (BUG-COMMENT-MARKER / upstream #153).
+ *
+ * Form: `<!-- cla-lite-bot:<kind>:<workflow>:<job> -->`
+ *
+ * Existing comments without the marker still match the legacy substring
+ * detector and get the marker stamped on next update.
+ */
+function commentMarker(kind = selectedKind()) {
+    const workflow = process.env.GITHUB_WORKFLOW ?? 'default';
+    const job = process.env.GITHUB_JOB ?? 'default';
+    return `<!-- cla-lite-bot:${kind}:${workflow}:${job} -->`;
+}
+function defaultSignLine(kind) {
+    const abbrev = kind === 'dco' ? 'DCO' : 'CLA';
+    return `I have read the ${abbrev} Document and I hereby sign the ${abbrev}`;
+}
+function signComment(kind) {
+    return input.getCustomPrSignComment() || defaultSignLine(kind);
+}
+function botSignature(kind) {
+    // The DCO footer historically used 4 stars (`****`) — a Markdown-emphasis
+    // typo that GitHub renders the same as 2 stars. Preserved here so the
+    // refactor is byte-identical for existing consumers.
+    return kind === 'dco'
+        ? '<sub>Posted by the ****DCO Assistant Lite bot****.</sub>'
+        : '<sub>Posted by the **CLA Assistant Lite bot**.</sub>';
+}
+function documentLink(kind) {
+    const longName = kind === 'dco' ? 'Developer Certificate of Origin' : 'Contributor License Agreement';
+    return `[${longName}](${input.getPathToDocument()})`;
+}
 function commentContent(signed, committerMap) {
-    // using a `string` true or false purposely as github action input cannot have a boolean value
-    if (input.getUseDcoFlag() == 'true') {
-        return dco(signed, committerMap);
-    }
-    else {
-        return cla(signed, committerMap);
-    }
+    const kind = selectedKind();
+    return render(kind, signed, committerMap) + '\n' + commentMarker(kind);
 }
-function dco(signed, committerMap) {
+function render(kind, signed, committerMap) {
+    const abbrev = kind === 'dco' ? 'DCO' : 'CLA';
     if (signed) {
-        const line1 = input.getCustomAllSignedPrComment() || `All contributors have signed the DCO  ✍️ ✅`;
-        const text = `${line1}<br/><sub>Posted by the ****DCO Assistant Lite bot****.</sub>`;
-        return text;
+        const line1 = input.getCustomAllSignedPrComment() ||
+            `All contributors have signed the ${abbrev}  ✍️ ✅`;
+        return `${line1}<br/>${botSignature(kind)}`;
     }
-    let committersCount = 1;
-    if (committerMap && committerMap.signed && committerMap.notSigned) {
-        committersCount = committerMap.signed.length + committerMap.notSigned.length;
-    }
-    let you = committersCount > 1 ? `you all` : `you`;
-    let lineOne = (input.getCustomNotSignedPrComment() || `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our [Developer Certificate of Origin](${input.getPathToDocument()}) before we can accept your contribution. You can sign the DCO by just posting a Pull Request Comment same as the below format.<br/>`).replace('$you', you);
+    const signed_count = committerMap?.signed?.length ?? 0;
+    const not_signed_count = committerMap?.notSigned?.length ?? 0;
+    const committersCount = signed_count + not_signed_count || 1;
+    const you = committersCount > 1 ? 'you all' : 'you';
+    const lineOne = (input.getCustomNotSignedPrComment() ||
+        `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our ${documentLink(kind)} before we can accept your contribution. You can sign the ${abbrev} by just posting a Pull Request Comment same as the below format.<br/>`).replace('$you', you);
     let text = `${lineOne}
    - - -
-   ${input.getCustomPrSignComment() || "I have read the DCO Document and I hereby sign the DCO"}
+   ${signComment(kind)}
    - - -
    `;
-    if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
-        text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the DCO.`;
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`; });
+    if (committersCount > 1 &&
+        committerMap?.signed &&
+        committerMap?.notSigned) {
+        text += `**${signed_count}** out of **${signed_count + not_signed_count}** committers have signed the ${abbrev}.`;
+        committerMap.signed.forEach(signedCommitter => {
+            // BUG-MARKDOWN-LINK fix: proper [text](url) form.
+            text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`;
+        });
         committerMap.notSigned.forEach(unsignedCommitter => {
-            // Only @-mention if we resolved a real GitHub user. Otherwise
-            // `name` is the raw git author name and `@`-prefixing it can ping
-            // an unrelated GitHub login that happens to match.
-            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name;
+            // BUG-AT-MENTION-GHOST fix: only @-mention when committer has a resolved
+            // GitHub user id; otherwise list the raw git author name without `@`.
+            const mention = unsignedCommitter.id
+                ? `@${unsignedCommitter.name}`
+                : unsignedCommitter.name;
             text += `<br/>:x: ${mention}`;
         });
         text += '<br/>';
     }
-    if (committerMap && committerMap.unknown && committerMap.unknown.length > 0) {
-        let seem = committerMap.unknown.length > 1 ? "seem" : "seems";
-        let committerNames = committerMap.unknown.map(committer => committer.name);
-        text += `**${committerNames.join(", ")}** ${seem} not to be a GitHub user.`;
-        text += ' You need a GitHub account to be able to sign the DCO. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/>';
+    if (committerMap?.unknown && committerMap.unknown.length > 0) {
+        const seem = committerMap.unknown.length > 1 ? 'seem' : 'seems';
+        const committerNames = committerMap.unknown.map(c => c.name);
+        text += `**${committerNames.join(', ')}** ${seem} not to be a GitHub user.`;
+        text += ` You need a GitHub account to be able to sign the ${abbrev}. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/>`;
     }
-    if (input.suggestRecheck() == 'true') {
+    if (input.suggestRecheck() === 'true') {
         text += '<sub>You can retrigger this bot by commenting **recheck** in this Pull Request. </sub>';
     }
-    text += '<sub>Posted by the ****DCO Assistant Lite bot****.</sub>';
-    return text;
-}
-function cla(signed, committerMap) {
-    if (signed) {
-        const line1 = input.getCustomAllSignedPrComment() || `All contributors have signed the CLA  ✍️ ✅`;
-        const text = `${line1}<br/><sub>Posted by the ****CLA Assistant Lite bot****.</sub>`;
-        return text;
-    }
-    let committersCount = 1;
-    if (committerMap && committerMap.signed && committerMap.notSigned) {
-        committersCount = committerMap.signed.length + committerMap.notSigned.length;
-    }
-    let you = committersCount > 1 ? `you all` : `you`;
-    let lineOne = (input.getCustomNotSignedPrComment() || `<br/>Thank you for your submission, we really appreciate it. Like many open-source projects, we ask that $you sign our [Contributor License Agreement](${input.getPathToDocument()}) before we can accept your contribution. You can sign the CLA by just posting a Pull Request Comment same as the below format.<br/>`).replace('$you', you);
-    let text = `${lineOne}
-   - - -
-   ${(0, pr_sign_comment_1.getPrSignComment)()}
-   - - -
-   `;
-    if (committersCount > 1 && committerMap && committerMap.signed && committerMap.notSigned) {
-        text += `**${committerMap.signed.length}** out of **${committerMap.signed.length + committerMap.notSigned.length}** committers have signed the CLA.`;
-        committerMap.signed.forEach(signedCommitter => { text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`; });
-        committerMap.notSigned.forEach(unsignedCommitter => {
-            // Only @-mention if we resolved a real GitHub user. Otherwise
-            // `name` is the raw git author name and `@`-prefixing it can ping
-            // an unrelated GitHub login that happens to match.
-            const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name;
-            text += `<br/>:x: ${mention}`;
-        });
-        text += '<br/>';
-    }
-    if (committerMap && committerMap.unknown && committerMap.unknown.length > 0) {
-        let seem = committerMap.unknown.length > 1 ? "seem" : "seems";
-        let committerNames = committerMap.unknown.map(committer => committer.name);
-        text += `**${committerNames.join(", ")}** ${seem} not to be a GitHub user.`;
-        text += ' You need a GitHub account to be able to sign the CLA. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/>';
-    }
-    if (input.suggestRecheck() == 'true') {
-        text += '<sub>You can retrigger this bot by commenting **recheck** in this Pull Request. </sub>';
-    }
-    text += '<sub>Posted by the **CLA Assistant Lite bot**.</sub>';
+    text += botSignature(kind);
     return text;
 }
 
@@ -798,9 +826,10 @@ exports.lockPullRequest = lockPullRequest;
 const octokit_1 = __nccwpck_require__(5957);
 const core = __importStar(__nccwpck_require__(7484));
 const github_1 = __nccwpck_require__(3228);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function lockPullRequest() {
     core.info('Locking the Pull Request to safe guard the Pull Request CLA Signatures');
-    const pullRequestNo = github_1.context.issue.number;
+    const pullRequestNo = (0, getPullRequestNumber_1.getPullRequestNumber)();
     try {
         await octokit_1.octokit.rest.issues.lock({
             owner: github_1.context.repo.owner,
@@ -827,12 +856,13 @@ exports["default"] = signatureWithPRComment;
 const octokit_1 = __nccwpck_require__(5957);
 const github_1 = __nccwpck_require__(3228);
 const getInputs_1 = __nccwpck_require__(7189);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function signatureWithPRComment(committerMap, committers) {
     let repoId = github_1.context.payload.repository.id;
     let prResponse = await octokit_1.octokit.rest.issues.listComments({
         owner: github_1.context.repo.owner,
         repo: github_1.context.repo.repo,
-        issue_number: github_1.context.issue.number
+        issue_number: (0, getPullRequestNumber_1.getPullRequestNumber)()
     });
     let listOfPRComments = [];
     let filteredListOfPRComments = [];
@@ -848,7 +878,7 @@ async function signatureWithPRComment(committerMap, committers) {
             body: prComment.body?.trim().toLowerCase() ?? '',
             created_at: prComment.created_at,
             repoId: repoId,
-            pullRequestNo: github_1.context.issue.number
+            pullRequestNo: (0, getPullRequestNumber_1.getPullRequestNumber)()
         });
     });
     listOfPRComments.map(comment => {
@@ -939,12 +969,12 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", ({ value: true }));
 exports.setupClaCheck = setupClaCheck;
 const core = __importStar(__nccwpck_require__(7484));
-const github_1 = __nccwpck_require__(3228);
 const checkAllowList_1 = __nccwpck_require__(4715);
 const graphql_1 = __importDefault(__nccwpck_require__(5777));
 const persistence_1 = __nccwpck_require__(9947);
 const pullRequestComment_1 = __importDefault(__nccwpck_require__(366));
 const pullRerunRunner_1 = __nccwpck_require__(8109);
+const getPullRequestNumber_1 = __nccwpck_require__(8931);
 async function setupClaCheck() {
     let committerMap = getInitialCommittersMap();
     let committers = await (0, graphql_1.default)();
@@ -964,7 +994,7 @@ async function setupClaCheck() {
             return (0, pullRerunRunner_1.reRunLastWorkFlowIfRequired)();
         }
         else {
-            core.setFailed(`Committers of Pull Request number ${github_1.context.issue.number} have to sign the CLA 📝`);
+            core.setFailed(`Committers of Pull Request number ${(0, getPullRequestNumber_1.getPullRequestNumber)()} have to sign the CLA 📝`);
         }
     }
     catch (err) {
@@ -1005,7 +1035,7 @@ async function createClaFileAndPRComment(committers, committerMap) {
     const initialContentBinary = Buffer.from(initialContentString).toString('base64');
     await (0, persistence_1.createFile)(initialContentBinary).catch(error => core.setFailed(`Error occurred when creating the signed contributors file: ${error.message || error}. Make sure the branch where signatures are stored is NOT protected.`));
     await (0, pullRequestComment_1.default)(committerMap, committers);
-    throw new Error(`Committers of pull request ${github_1.context.issue.number} have to sign the CLA`);
+    throw new Error(`Committers of pull request ${(0, getPullRequestNumber_1.getPullRequestNumber)()} have to sign the CLA`);
 }
 function prepareCommiterMap(committers, claFileContent) {
     let committerMap = getInitialCommittersMap();
@@ -1107,49 +1137,60 @@ exports.suggestRecheck = suggestRecheck;
 
 /***/ }),
 
-/***/ 7228:
-/***/ (function(__unused_webpack_module, exports, __nccwpck_require__) {
+/***/ 8931:
+/***/ ((__unused_webpack_module, exports, __nccwpck_require__) => {
 
 "use strict";
 
-var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    var desc = Object.getOwnPropertyDescriptor(m, k);
-    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
-      desc = { enumerable: true, get: function() { return m[k]; } };
-    }
-    Object.defineProperty(o, k2, desc);
-}) : (function(o, m, k, k2) {
-    if (k2 === undefined) k2 = k;
-    o[k2] = m[k];
-}));
-var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
-    Object.defineProperty(o, "default", { enumerable: true, value: v });
-}) : function(o, v) {
-    o["default"] = v;
-});
-var __importStar = (this && this.__importStar) || (function () {
-    var ownKeys = function(o) {
-        ownKeys = Object.getOwnPropertyNames || function (o) {
-            var ar = [];
-            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
-            return ar;
-        };
-        return ownKeys(o);
-    };
-    return function (mod) {
-        if (mod && mod.__esModule) return mod;
-        var result = {};
-        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
-        __setModuleDefault(result, mod);
-        return result;
-    };
-})();
 Object.defineProperty(exports, "__esModule", ({ value: true }));
-exports.getPrSignComment = getPrSignComment;
-const input = __importStar(__nccwpck_require__(7189));
-function getPrSignComment() {
-    return input.getCustomPrSignComment() || "I have read the CLA Document and I hereby sign the CLA";
+exports.getPullRequestNumber = getPullRequestNumber;
+const github_1 = __nccwpck_require__(3228);
+/**
+ * Centralized lookup for the PR number this action is operating on.
+ *
+ * Today this is always `context.issue.number` — the value GitHub sets when
+ * the workflow is triggered from a PR event. M5.1 of the v3 plan adds a
+ * `pull-request-number` action input so the action can be driven from
+ * `workflow_run` and other non-PR triggers; that future override will land
+ * here without needing to revisit every call site.
+ *
+ * Every call site that was previously reading `context.issue.number`
+ * directly now routes through this helper.
+ */
+function getPullRequestNumber() {
+    return github_1.context.issue.number;
+}
+
+
+/***/ }),
+
+/***/ 4476:
+/***/ ((__unused_webpack_module, exports) => {
+
+"use strict";
+
+Object.defineProperty(exports, "__esModule", ({ value: true }));
+exports.buildCommitMessage = buildCommitMessage;
+/**
+ * Build the commit message stamped onto signed-contributor pushes.
+ *
+ * When `template` is empty/undefined, return the default
+ * `@<contributor> has signed the CLA in <owner>/<repo>#<n>` form.
+ *
+ * Otherwise substitute the known tokens. Uses a global regex so a template
+ * that references the same token twice (legitimate use case) replaces both
+ * sites — the prior code used `.replace('$contributorName', ...)` which
+ * only touched the first occurrence.
+ */
+function buildCommitMessage(template, vars) {
+    if (!template) {
+        return `@${vars.contributorName} has signed the CLA in ${vars.owner}/${vars.repo}#${vars.pullRequestNo}`;
+    }
+    return template
+        .replace(/\$contributorName/g, vars.contributorName)
+        .replace(/\$pullRequestNo/g, String(vars.pullRequestNo))
+        .replace(/\$owner/g, vars.owner)
+        .replace(/\$repo/g, vars.repo);
 }
 
 
