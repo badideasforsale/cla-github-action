@@ -92,9 +92,10 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
       })
   })
 
-  it('falls back to legacy substring match for comments without a marker', () => {
-    // simulates a comment posted by the upstream bot before markers existed —
-    // single-job consumers must still pick it up.
+  it('falls back to legacy substring match for v2-era comments without a marker', () => {
+    // simulates a comment posted by upstream contributor-assistant/github-action
+    // before this fork's marker existed — single-job consumers must still
+    // pick it up so the v2→v3 migration is seamless.
     const legacyComment = {
       id: 99,
       body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>'
@@ -105,6 +106,25 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
       .then(() => {
         expect(mockUpdateComment).toHaveBeenCalledWith(
           expect.objectContaining({ comment_id: 99 })
+        )
+      })
+  })
+
+  it('also matches v3-brand comments without a marker (defensive)', () => {
+    // A v3 comment without a marker shouldn't normally occur — every v3
+    // render appends one. But if the marker block were ever stripped (manual
+    // edit, deserialization round-trip), the legacy regex should still find
+    // the comment by brand string.
+    const v3CommentNoMarker = {
+      id: 100,
+      body: '<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>'
+    }
+    mockListComments.mockResolvedValueOnce({ data: [v3CommentNoMarker] })
+
+    return prCommentSetup(map({ notSigned: [{ name: 'a', id: 1 }] }), [{ name: 'a', id: 1 }])
+      .then(() => {
+        expect(mockUpdateComment).toHaveBeenCalledWith(
+          expect.objectContaining({ comment_id: 100 })
         )
       })
   })

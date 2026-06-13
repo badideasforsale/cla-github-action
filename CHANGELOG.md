@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 This section tracks work toward v3.0.0.
 
+### Rebranded
+
+- **Action name: "CLA Assistant Lite" → "Self-Hosted CLA Assistant"** (the brand decided at M7.1). The bot's PR-comment footer is now "Posted by the **Self-Hosted CLA Assistant bot**" (or "Self-Hosted DCO Assistant bot" in DCO mode). Both the v3 brand strings AND the legacy "CLA/DCO Assistant Lite bot" strings are recognized by the existing-comment lookup, so v2.x consumers' in-flight PR comments are picked up on the first v3 run and migrated forward — no orphans.
+- The hidden HTML marker (`<!-- cla-lite-bot:<kind>:<workflow>:<job> -->`) keeps its `cla-lite-bot:` prefix as a brand-neutral stable internal identifier. It's invisible to consumers and renaming it would force yet another migration matcher.
+- DCO footer dropped its `****` (4-star) Markdown-emphasis typo — preserved through M3.1 for byte-stability with the v2 brand, no longer needed when the brand changes anyway.
+
+### Attribution
+
+The original CLA Assistant work — both the [hosted service](https://github.com/cla-assistant/cla-assistant) and [this Action](https://github.com/contributor-assistant/github-action) — was created by [@ibakshay](https://github.com/ibakshay) and the [`cla-assistant`](https://github.com/cla-assistant) organization. This fork wouldn't exist without their years of work. README, `action.yml`, and the source headers explicitly credit them.
+
 ### ⚠️ Breaking changes (v2.x → v3.0.0)
 
 Consolidated summary of every behavior change consumers may notice when upgrading from `contributor-assistant/github-action@v2.6.1` or earlier to this fork's `@v3`. Most are corrections of long-standing bugs — listed here so the change is discoverable rather than surprising.

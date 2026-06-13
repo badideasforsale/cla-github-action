@@ -1,6 +1,6 @@
-name: "CLA Assistant Lite"
-description: "Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (DCO) signatures via PR comments. Maintained fork."
-author: "ibakshay; maintained by badideasforsale"
+name: "Self-Hosted CLA Assistant"
+description: "Handle CLA/DCO signatures via PR comments — decentralized, no third-party service. Maintained fork of contributor-assistant/github-action; originally by @ibakshay."
+author: "Originally @ibakshay (cla-assistant); maintained by @badideasforsale"
 branding:
   icon: "award"
   color: blue

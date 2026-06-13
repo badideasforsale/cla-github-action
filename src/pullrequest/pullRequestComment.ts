@@ -74,10 +74,14 @@ async function getComment() {
     )
     if (markerMatch) return markerMatch
 
+    // Match BOTH the v3 brand ("Self-Hosted CLA/DCO Assistant bot") and the
+    // upstream/v2 brand ("CLA/DCO Assistant Lite bot"). Existing PR comments
+    // from v2.x consumers must still be findable on the first v3 run; once
+    // updated they carry the new marker and don't rely on this fallback.
     const isDco = getUseDcoFlag() === 'true'
     const legacy = isDco
-      ? /.*DCO Assistant Lite bot.*/m
-      : /.*CLA Assistant Lite bot.*/m
+      ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m
+      : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m
     return response.data.find(comment => comment.body?.match(legacy))
   } catch (error) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error.message}`)

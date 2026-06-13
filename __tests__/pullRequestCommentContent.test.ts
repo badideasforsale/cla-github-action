@@ -78,10 +78,10 @@ describe('commentContent — CLA branch', () => {
   })
 
   describe('signed branches', () => {
-    it('renders the CLA all-signed footer', () => {
+    it('renders the CLA all-signed footer with the v3 brand', () => {
       const out = commentContent(true, makeMap())
       expect(out).toContain('All contributors have signed the CLA')
-      expect(out).toContain('CLA Assistant Lite bot')
+      expect(out).toContain('Self-Hosted CLA Assistant bot')
     })
   })
 
@@ -140,10 +140,10 @@ describe('commentContent — DCO branch', () => {
     expect(out).not.toContain('@ghost')
   })
 
-  it('renders the DCO all-signed footer', () => {
+  it('renders the DCO all-signed footer with the v3 brand', () => {
     const out = commentContent(true, makeMap())
     expect(out).toContain('All contributors have signed the DCO')
-    expect(out).toContain('DCO Assistant Lite bot')
+    expect(out).toContain('Self-Hosted DCO Assistant bot')
   })
 })
 

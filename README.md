@@ -1,14 +1,11 @@
-![build](https://github.com/cla-assistant/github-action/workflows/build/badge.svg)
+# Self-Hosted CLA Assistant
 
+Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (DCO) signatures via GitHub Actions — decentralized, no third-party service. Contributors sign by posting a PR comment; signatures are stored as JSON in a repo of your choice (same repo, or remote).
 
 > [!NOTE]
-> **This is a maintained fork** of [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action), which was archived by its upstream maintainer in 2026. This fork picks up where upstream left off — see [`CHANGELOG.md`](./CHANGELOG.md) for changes.
+> **This is a maintained fork** of [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action) (archived 2026), itself a continuation of [cla-assistant/github-action](https://github.com/cla-assistant/github-action). Originally created by [@ibakshay](https://github.com/ibakshay) and the [cla-assistant](https://github.com/cla-assistant) maintainers — many thanks to them for the years of work that made this possible. This fork picks up where upstream left off; see [`CHANGELOG.md`](./CHANGELOG.md) for v3 changes.
 >
 > Consumers on `contributor-assistant/github-action@v2.x` can switch the tag to this fork's `@v3` once it ships; a migration guide will accompany the v3 release.
-
-# Handling CLAs and DCOs via GitHub Action
-
-Streamline your workflow and let this GitHub Action (a lite version of [CLA Assistant](https://github.com/cla-assistant/cla-assistant)) handle the legal side of contributions to a repository for you. CLA assistant GitHub action enables contributors to sign CLAs from within a pull request. With this GitHub Action we could get rid of the need for a centrally managed database by **storing the contributor's signature data** in a decentralized way - **in the same repository's file system** or **in a remote repository** which can be even a private repository.
 
 > [!TIP]
 > **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Everything in this README applies — wording in the bot comments, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA".
@@ -73,7 +70,7 @@ jobs:
           #signed-commit-message: 'For example: $contributorName has signed the CLA in $owner/$repo#$pullRequestNo'
           #custom-notsigned-prcomment: 'pull request comment with Introductory message to ask new contributors to sign'
           #custom-pr-sign-comment: 'The signature to be committed in order to sign the CLA'
-          #custom-allsigned-prcomment: 'pull request comment when all contributors has signed, defaults to **CLA Assistant Lite bot** All Contributors have signed the CLA.'
+          #custom-allsigned-prcomment: 'pull request comment when all contributors have signed; defaults to "All contributors have signed the CLA  ✍️ ✅".'
           #lock-pullrequest-aftermerge: false - if you don't want this bot to automatically lock the pull request after merging (default - true)
           #use-dco-flag: true - If you are using DCO instead of CLA
           #exempt-repo-org-members: true - if true, members of the repo's owning org are auto-allowlisted (requires read:org-scoped PAT for private orgs)

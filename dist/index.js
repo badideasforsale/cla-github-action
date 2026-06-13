@@ -25565,7 +25565,7 @@ function signComment(kind) {
   return getCustomPrSignComment() || defaultSignLine(kind);
 }
 function botSignature(kind) {
-  return kind === "dco" ? "<sub>Posted by the ****DCO Assistant Lite bot****.</sub>" : "<sub>Posted by the **CLA Assistant Lite bot**.</sub>";
+  return kind === "dco" ? "<sub>Posted by the **Self-Hosted DCO Assistant bot**.</sub>" : "<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>";
 }
 function documentLink(kind) {
   const longName = kind === "dco" ? "Developer Certificate of Origin" : "Contributor License Agreement";
@@ -25672,7 +25672,7 @@ async function getComment() {
     );
     if (markerMatch) return markerMatch;
     const isDco = getUseDcoFlag() === "true";
-    const legacy = isDco ? /.*DCO Assistant Lite bot.*/m : /.*CLA Assistant Lite bot.*/m;
+    const legacy = isDco ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m;
     return response.data.find((comment) => comment.body?.match(legacy));
   } catch (error2) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error2.message}`);

@@ -34,12 +34,14 @@ function signComment(kind: Kind): string {
 }
 
 function botSignature(kind: Kind): string {
-  // The DCO footer historically used 4 stars (`****`) — a Markdown-emphasis
-  // typo that GitHub renders the same as 2 stars. Preserved here so the
-  // refactor is byte-identical for existing consumers.
+  // v3 rebrand: "Self-Hosted CLA/DCO Assistant bot". The legacy substring
+  // matcher in pullRequestComment.getComment recognizes both the v3 brand
+  // AND the upstream "CLA/DCO Assistant Lite bot" string, so existing PRs
+  // from v2.x consumers continue to match on the first v3 run and then
+  // get the new marker stamped on next update.
   return kind === 'dco'
-    ? '<sub>Posted by the ****DCO Assistant Lite bot****.</sub>'
-    : '<sub>Posted by the **CLA Assistant Lite bot**.</sub>'
+    ? '<sub>Posted by the **Self-Hosted DCO Assistant bot**.</sub>'
+    : '<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>'
 }
 
 function documentLink(kind: Kind): string {

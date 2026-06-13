@@ -1,7 +1,7 @@
 // Jest Snapshot v1, https://goo.gl/fbAQLP
 
 exports[`full-comment snapshots (regression detection) CLA — all signed 1`] = `
-"All contributors have signed the CLA  ✍️ ✅<br/><sub>Posted by the **CLA Assistant Lite bot**.</sub>
+"All contributors have signed the CLA  ✍️ ✅<br/><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
@@ -10,7 +10,7 @@ exports[`full-comment snapshots (regression detection) CLA — multi-committer, 
    - - -
    I have read the CLA Document and I hereby sign the CLA
    - - -
-   **1** out of **2** committers have signed the CLA.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>Posted by the **CLA Assistant Lite bot**.</sub>
+   **1** out of **2** committers have signed the CLA.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
@@ -19,7 +19,7 @@ exports[`full-comment snapshots (regression detection) CLA — single unsigned c
    - - -
    I have read the CLA Document and I hereby sign the CLA
    - - -
-   <sub>Posted by the **CLA Assistant Lite bot**.</sub>
+   <sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
@@ -28,7 +28,7 @@ exports[`full-comment snapshots (regression detection) CLA — unknown committer
    - - -
    I have read the CLA Document and I hereby sign the CLA
    - - -
-   **Local Git Author** seems not to be a GitHub user. You need a GitHub account to be able to sign the CLA. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/><sub>Posted by the **CLA Assistant Lite bot**.</sub>
+   **Local Git Author** seems not to be a GitHub user. You need a GitHub account to be able to sign the CLA. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
@@ -37,12 +37,12 @@ exports[`full-comment snapshots (regression detection) CLA — with suggest-rech
    - - -
    I have read the CLA Document and I hereby sign the CLA
    - - -
-   **1** out of **2** committers have signed the CLA.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>You can retrigger this bot by commenting **recheck** in this Pull Request. </sub><sub>Posted by the **CLA Assistant Lite bot**.</sub>
+   **1** out of **2** committers have signed the CLA.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>You can retrigger this bot by commenting **recheck** in this Pull Request. </sub><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
 exports[`full-comment snapshots (regression detection) DCO — all signed 1`] = `
-"All contributors have signed the DCO  ✍️ ✅<br/><sub>Posted by the ****DCO Assistant Lite bot****.</sub>
+"All contributors have signed the DCO  ✍️ ✅<br/><sub>Posted by the **Self-Hosted DCO Assistant bot**.</sub>
 <!-- cla-lite-bot:dco:wf:job -->"
 `;
 
@@ -51,6 +51,6 @@ exports[`full-comment snapshots (regression detection) DCO — multi-committer, 
    - - -
    I have read the DCO Document and I hereby sign the DCO
    - - -
-   **1** out of **2** committers have signed the DCO.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>Posted by the ****DCO Assistant Lite bot****.</sub>
+   **1** out of **2** committers have signed the DCO.<br/>:white_check_mark: [alice](https://github.com/alice)<br/>:x: @bob<br/><sub>Posted by the **Self-Hosted DCO Assistant bot**.</sub>
 <!-- cla-lite-bot:dco:wf:job -->"
 `;
