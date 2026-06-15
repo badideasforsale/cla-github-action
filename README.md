@@ -255,17 +255,10 @@ This was a real bug (inverted Markdown link, `(name)[url]` instead of `[name](ur
 <table>
 <tr>
     <td align="center">
-        <a href="https://github.com/matbos">
-            <img src="https://avatars.githubusercontent.com/u/1948188?v=4" width="100;" alt="matbos"/>
+        <a href="https://github.com/badideasforsale">
+            <img src="https://avatars.githubusercontent.com/u/80412585?v=4" width="100;" alt="badideasforsale"/>
             <br />
-            <sub><b>Mateusz Boś</b></sub>
-        </a>
-    </td>
-    <td align="center">
-        <a href="https://github.com/michael-spengler">
-            <img src="https://avatars.githubusercontent.com/u/43786652?v=4" width="100;" alt="michael-spengler"/>
-            <br />
-            <sub><b>Michael Spengler</b></sub>
+            <sub><b>Null</b></sub>
         </a>
     </td>
     <td align="center">
@@ -273,6 +266,13 @@ This was a real bug (inverted Markdown link, `(name)[url]` instead of `[name](ur
             <img src="https://avatars.githubusercontent.com/u/33329946?v=4" width="100;" alt="ibakshay"/>
             <br />
             <sub><b>Akshay Iyyadurai Balasundaram</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/michael-spengler">
+            <img src="https://avatars.githubusercontent.com/u/43786652?v=4" width="100;" alt="michael-spengler"/>
+            <br />
+            <sub><b>Michael Spengler</b></sub>
         </a>
     </td>
     <td align="center">
