@@ -1,0 +1,89 @@
+name: Release
+
+# Fires on a pushed v<semver> tag (e.g. v3.0.0). Rebuilds dist/ from the
+# tagged commit, fails if dist/ is stale, publishes a build-provenance
+# attestation for dist/index.js, and moves the major-version floating tag
+# (e.g. v3) to point at this commit so consumers pinning `@v3` automatically
+# pick up the new minor/patch.
+#
+# Setup-required-once: the user must push the tag (`git tag v3.0.0 && git
+# push origin v3.0.0`) — this workflow then takes over.
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write       # update the major-version floating tag + create the GitHub Release
+      id-token: write       # attest-build-provenance OIDC
+      attestations: write   # attest-build-provenance writes here
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          fetch-depth: 0  # need full history to move the major tag
+
+      - name: Set up Node.js
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 24.x
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build dist/
+        run: npm run build
+
+      - name: Fail if dist/ is stale
+        # The version we ship MUST match the source at the tagged commit.
+        # If a maintainer ever pushes a tag without rebuilding, fail loudly
+        # here — same invariant as the verify-dist job on PRs.
+        run: |
+          if [ -n "$(git status --porcelain dist/)" ]; then
+            echo "::error::dist/ is out of sync with src/. Rebuild before tagging."
+            git status --porcelain dist/
+            exit 1
+          fi
+
+      - name: Attest build provenance for dist/index.js
+        # Publishes a Sigstore-backed attestation to GitHub's attestation
+        # store. Consumers can verify with:
+        #   gh attestation verify dist/index.js --owner <owner>
+        # — proves the bundle came from this repo at this commit.
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: dist/index.js
+
+      - name: Compute major-version tag (vN)
+        id: major
+        run: |
+          tag="${GITHUB_REF#refs/tags/}"
+          major="${tag%%.*}"  # v3.0.0 → v3
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+          echo "major=${major}" >> "$GITHUB_OUTPUT"
+
+      - name: Move the major-version floating tag
+        # Consumers who pin `@v3` should get this commit on their next workflow
+        # run. Floating tag has to be force-updated since it already exists.
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -f "${{ steps.major.outputs.major }}"
+          git push origin -f "${{ steps.major.outputs.major }}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${{ steps.major.outputs.tag }}" \
+            --title "${{ steps.major.outputs.tag }}" \
+            --notes "See [CHANGELOG.md](./CHANGELOG.md) for details. Build provenance attestation published — verify with \`gh attestation verify dist/index.js --owner $GITHUB_REPOSITORY_OWNER\`."

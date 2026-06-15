@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-This section tracks work toward v3.0.0.
+_Nothing yet — open the next section for ideas in flight._
+
+## [3.0.0] — 2026-06-12
+
+First release of this maintained fork.
 
 ### Rebranded
 
@@ -107,7 +111,7 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 
 ### Refactored (no observable change)
 
-- **Comment template consolidated.** `cla()` and `dco()` in `pullRequestCommentContent.ts` were 95% duplicated — every comment-text bug had to be fixed twice and historically was only fixed once. Replaced with a single template parameterized by `kind: 'cla' | 'dco'`. The DCO branch's 4-star footer typo (`****DCO Assistant Lite bot****`) is preserved to keep rendered output byte-stable for existing PRs.
+- **Comment template consolidated.** `cla()` and `dco()` in `pullRequestCommentContent.ts` were 95% duplicated — every comment-text bug had to be fixed twice and historically was only fixed once. Replaced with a single template parameterized by `kind: 'cla' | 'dco'`. The DCO branch's 4-star footer typo (`****DCO Assistant Lite bot****`) was held byte-stable through this refactor for safety; it was dropped together with the brand change in M7.1 (see the Rebranded section above).
 - **Hidden HTML-comment marker** (`<!-- cla-lite-bot:<kind>:<workflow>:<job> -->`) appended to every bot comment. The lookup in `pullRequestComment.getComment` prefers this marker, so multiple CLA/DCO jobs in one repo can each find their own comment instead of stomping each other ([#153](https://github.com/contributor-assistant/github-action/issues/153)). Falls back to the legacy substring match for comments posted before markers existed; the next update stamps the marker on, completing migration.
 - **Allowlist matcher rewrite** ([#169](https://github.com/contributor-assistant/github-action/issues/169)). `checkAllowList.ts` rewritten to remove the double-negation tangle (`isUserNotInAllowList`) flagged in `CLAUDE.md`. New behavior:
   - **Case-insensitive matching** (GitHub usernames are case-insensitive) — the long-standing `Copilot` vs `copilot` mismatch is fixed.

@@ -9,18 +9,16 @@ This repository is **archived / no longer actively maintained** (see the banner 
 ## Commands
 
 - `npm ci` — install dependencies (CI uses this; `package-lock.json` is the source of truth).
-- `npm run build` — runs `tsc` then `ncc build`, bundling everything into `dist/index.js`. **`dist/index.js` is the action's runtime** and must be checked in.
+- `npm run build` — runs `tsc` then `esbuild`, bundling everything into `dist/index.js`. **`dist/index.js` is the action's runtime** and must be checked in.
 - `npm test` — runs Jest (config in `jest.config.js`, matches `**/*.test.ts`, uses `ts-jest`).
 - `npx jest __tests__/pullRequestLock.test.ts` — run a single test file.
 - `npx jest -t "lock pull request"` — run tests matching a name.
 
-A Husky `pre-commit` hook (`package.json` → `husky.hooks.pre-commit`) runs `npm run buildAndAdd` to rebuild `dist/` and `git add .` on every commit. If the hook is bypassed, the committed `dist/index.js` will drift from `src/`.
-
-**Heads-up:** the test files in `__tests__/` (`main.test.ts`, `pullRequestLock.test.ts`) import paths that no longer exist after a refactor (`../src/checkcla`, `../src/pullRequestLock` — actual paths are `src/setupClaCheck.ts` and `src/pullrequest/pullRequestLock.ts`). Tests do not currently run cleanly; CI in `.github/workflows/nodejs.yml` only runs `npm run build`, not `npm test`. Treat the existing tests as stale rather than authoritative.
+There is no pre-commit hook. The `verify-dist` job in `.github/workflows/nodejs.yml` rebuilds `dist/` and fails any PR where the result diverges from what's committed, so the rebuild must happen manually before pushing.
 
 ## Architecture
 
-This is a GitHub Action implemented in TypeScript. The bundled `dist/index.js` is invoked by GitHub Actions runtime (Node 20, see `action.yml`).
+This is a GitHub Action implemented in TypeScript. The bundled `dist/index.js` is invoked by GitHub Actions runtime (Node 24, see `action.yml`).
 
 ### Entry point and dispatch
 

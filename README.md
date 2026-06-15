@@ -5,7 +5,7 @@ Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (D
 > [!NOTE]
 > **This is a maintained fork** of [contributor-assistant/github-action](https://github.com/contributor-assistant/github-action) (archived 2026), itself a continuation of [cla-assistant/github-action](https://github.com/cla-assistant/github-action). Originally created by [@ibakshay](https://github.com/ibakshay) and the [cla-assistant](https://github.com/cla-assistant) maintainers — many thanks to them for the years of work that made this possible. This fork picks up where upstream left off; see [`CHANGELOG.md`](./CHANGELOG.md) for v3 changes.
 >
-> Consumers on `contributor-assistant/github-action@v2.x` can switch the tag to this fork's `@v3` once it ships; a migration guide will accompany the v3 release.
+> Consumers on `contributor-assistant/github-action@v2.x` can switch the tag to this fork's `@v3` — see [`MIGRATION.md`](./MIGRATION.md) for the upgrade walkthrough.
 
 > [!TIP]
 > **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Everything in this README applies — wording in the bot comments, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA".
@@ -50,7 +50,7 @@ jobs:
           github.event_name == 'pull_request_target' ||
           github.event.comment.body == 'recheck' ||
           contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')
-        uses: contributor-assistant/github-action@v2.6.1
+        uses: badideasforsale/cla-github-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           # the below token should have repo scope and must be manually added by you in the repository's secret

@@ -8,7 +8,7 @@ This is a maintained fork of [contributor-assistant/github-action](https://githu
 
 ## Developing this action
 
-This is a TypeScript GitHub Action bundled with `@vercel/ncc` into a single `dist/index.js` that the action runtime executes. Two things follow from that:
+This is a TypeScript GitHub Action bundled with `esbuild` into a single `dist/index.js` that the action runtime executes. Two things follow from that:
 
 1. **`dist/index.js` is part of the source you commit.** It must be regenerated whenever `src/` changes. There is no longer a husky pre-commit hook — you must run `npm run build` manually before pushing.
 2. **CI enforces freshness.** The `verify-dist` job in `.github/workflows/nodejs.yml` rebuilds `dist/` and fails the PR if the result differs from what's committed. If you forget the rebuild, CI will tell you.
@@ -17,7 +17,7 @@ This is a TypeScript GitHub Action bundled with `@vercel/ncc` into a single `dis
 
 ```sh
 npm ci                       # install deps from package-lock.json
-npm run build                # tsc + ncc → dist/index.js
+npm run build                # tsc + esbuild → dist/index.js
 npm test                     # jest (passWithNoTests until M2 lands)
 npm run validate-actions     # action-validator on action.yml + workflows
 ```

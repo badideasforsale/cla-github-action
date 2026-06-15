@@ -1,9 +1,9 @@
 {
   "_comment": "Reference manifest for the GitHub App this action authenticates as. Use this as a checklist when filling in the 'Create GitHub App' form at https://github.com/settings/apps/new (or your org's equivalent). The future create-cla-action-config npx bootstrap script will submit this as a manifest POST so users can one-shot the App creation.",
 
-  "name": "CLA Assistant Lite",
+  "name": "Self-Hosted CLA Assistant",
   "url": "https://github.com/badideasforsale/cla-github-action",
-  "description": "Authenticates the CLA Assistant Lite GitHub Action so it can post PR comments and write the signatures file as a bot identity instead of a human-owned PAT.",
+  "description": "Authenticates the Self-Hosted CLA Assistant GitHub Action so it can post PR comments and write the signatures file as a bot identity instead of a human-owned PAT.",
 
   "public": false,
 
