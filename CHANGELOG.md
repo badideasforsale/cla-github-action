@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet — open the next section for ideas in flight._
 
-## [3.0.0] — 2026-06-12
+## [3.0.0] — 2026-06-17
 
 First release of this maintained fork.
 
@@ -68,7 +68,6 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - **Toolchain:** TypeScript ^4.9 → ^5.9; `ts-jest` ^29.0 → ^29.4; `@types/node` ^18 → ^22; explicit `jest` ^29.7 + `@types/jest`.
 - **CI workflows:** rewritten. Single Node 24.x build matrix. All third-party actions SHA-pinned with version-tag comments. Least-privilege `permissions:` blocks on every job. `pull_request_target` and overbroad `branches: '*'` triggers removed.
 - **CodeQL:** language switched to `javascript-typescript`; explicit `security-events: write` permission; autobuild step dropped (unnecessary for JS/TS).
-- Build script: `ncc build` now takes an explicit entry path instead of relying on a misleading `main` field.
 
 ### Added
 

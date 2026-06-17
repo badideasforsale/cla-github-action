@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Repository status
 
-This repository is **archived / no longer actively maintained** (see the banner in `README.md`). The action remains functional and consumers continue to pin to released versions (`contributor-assistant/github-action@v2.x`). Existing forks (e.g. `contributor-assistant/github-action`) are where active development lives.
+This repository is a **maintained fork** of the (now-archived) [`contributor-assistant/github-action`](https://github.com/contributor-assistant/github-action), itself a continuation of `cla-assistant/github-action`. Active development happens here; consumers should pin to `badideasforsale/cla-github-action@v3` (or a 40-char SHA). See `README.md` for the user-facing banner and `CHANGELOG.md` for the v3 change set.
 
 ## Commands
 

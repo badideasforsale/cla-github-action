@@ -8,7 +8,7 @@ Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (D
 > Consumers on `contributor-assistant/github-action@v2.x` can switch the tag to this fork's `@v3` — see [`MIGRATION.md`](./MIGRATION.md) for the upgrade walkthrough.
 
 > [!TIP]
-> **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Everything in this README applies — wording in the bot comments, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA".
+> **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Bot wording, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA". **Before turning DCO mode on, read [DCO mode caveats](#dco-mode) below — it has important limitations.**
 
 ### Features
 1. decentralized data storage
@@ -208,6 +208,29 @@ Inputs without a default are required. `action.yml` is the source of truth; this
 | `bot-email` | _(empty — uses token identity)_ | Override the author/committer email. Pairs with `bot-name`. | `cla-bot@example.com` |
 | `github-app-id` | _(empty — uses GITHUB_TOKEN/PAT)_ | Numeric GitHub App ID. Set with `GITHUB_APP_PRIVATE_KEY` env var to authenticate as the App. See §6a. | `123456` |
 | `github-app-installation-id` | _(empty — auto-discovers)_ | Pin the installation id explicitly to skip the auto-discovery API call (~200 ms). | `12345678` |
+
+## DCO mode
+
+Setting `use-dco-flag: 'true'` switches the bot's wording, the sign-phrase regex, and the document-link label from CLA to DCO equivalents. Storage shape, authentication, allowlist, marker-based multi-job lookup, and every other input behave identically — only the user-facing text and the matching pattern change.
+
+> [!IMPORTANT]
+> **This is not a strict DCO check, and these notes were not written by a lawyer.**
+>
+> A canonical [Developer Certificate of Origin](https://developercertificate.org/) implementation enforces a `Signed-off-by: Name <email>` trailer on every commit in the PR — the model the Linux kernel uses, and what tools like [Probot DCO](https://github.com/probot/dco) verify. **This action does not check trailers.** It looks for a PR-comment sign phrase, the same mechanism CLA mode uses, with DCO wording substituted in.
+>
+> If your project needs trailer-enforced DCO compliance for legal review, this action won't get you there — reach for a trailer-checking tool instead. If you want the DCO's lower-friction model (attest by phrase, no rights granted) as an alternative to a CLA, this works fine.
+>
+> Adding real `Signed-off-by:` verification would be a welcome contribution — [open a PR](https://github.com/badideasforsale/cla-github-action/compare).
+
+### Pitfall: don't flip `use-dco-flag` on a repo with existing signatures
+
+The bot's existing-comment lookup is brand-specific — it matches the `Self-Hosted CLA Assistant bot` footer in CLA mode and `Self-Hosted DCO Assistant bot` in DCO mode (plus the legacy v2-era brand strings as a fallback). **Flipping the flag mid-stream means the bot can't find its previous comment and posts a new one.** And earlier signers attested to whatever document the flag's *previous* mode named, which may not match what your new mode now prompts new signers with.
+
+There is no in-place migration path. Pick CLA or DCO at install time. If you genuinely need to switch:
+
+1. Move the existing signatures file aside, or point `path-to-signatures:` at a new path so old and new signatures don't intermix.
+2. Notify existing signers that they need to re-sign under the new framework.
+3. Manually close or annotate the orphaned bot comments on any in-flight PRs so contributors aren't looking at the wrong sign phrase.
 
 ## Troubleshooting & setup gotchas
 

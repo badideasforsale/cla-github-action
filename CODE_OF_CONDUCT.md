@@ -55,11 +55,12 @@ further defined and clarified by project maintainers.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported by contacting the project team at akshay.iyyadurai.balasundaram@sap.com. All
-complaints will be reviewed and investigated and will result in a response that
-is deemed necessary and appropriate to the circumstances. The project team is
-obligated to maintain confidentiality with regard to the reporter of an incident.
-Further details of specific enforcement policies may be posted separately.
+reported privately via GitHub's [private vulnerability reporting](https://github.com/badideasforsale/cla-github-action/security/advisories/new)
+for this repository — it routes to the maintainers without becoming public,
+and we use the same channel for Code-of-Conduct reports. All complaints will
+be reviewed and investigated and will result in a response that is deemed
+necessary and appropriate to the circumstances. The project team is obligated
+to maintain confidentiality with regard to the reporter of an incident.
 
 Project maintainers who do not follow or enforce the Code of Conduct in good
 faith may face temporary or permanent repercussions as determined by other
