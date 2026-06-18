@@ -156,13 +156,23 @@ const getInitialCommittersMap = (): CommitterMap => ({
  * signature — especially useful when the committer can't be resolved to a
  * GitHub login (the only identifying info is then the raw git email).
  */
-function logUnsignedCommitterDetails(committerMap: CommitterMap): void {
+export function logUnsignedCommitterDetails(committerMap: CommitterMap): void {
   const notSigned = committerMap?.notSigned ?? []
   if (notSigned.length === 0) return
   core.info(`Unsigned committers (${notSigned.length}):`)
   for (const c of notSigned) {
-    const email = c.email ? ` <${c.email}>` : ''
+    // SEC-STRIP-NEWLINES: git author names + emails are contributor-controlled
+    // and may contain raw \r\n. `core.info` is a thin `process.stdout.write`,
+    // so a newline in the middle of this line could spawn a workflow command
+    // (`::warning::`, `::error::`, `::add-mask::`) on the next runner-parsed
+    // line. Strip CR/LF defensively.
+    const name = stripNewlines(c.name)
+    const email = c.email ? ` <${stripNewlines(c.email)}>` : ''
     const ghUser = c.id ? ` (GitHub user id ${c.id})` : ' (no GitHub user resolved)'
-    core.info(`  - ${c.name}${email}${ghUser}`)
+    core.info(`  - ${name}${email}${ghUser}`)
   }
+}
+
+function stripNewlines(s: string | undefined): string {
+  return (s ?? '').replace(/[\r\n]/g, ' ')
 }

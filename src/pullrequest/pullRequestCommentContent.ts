@@ -44,6 +44,22 @@ function botSignature(kind: Kind): string {
     : '<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>'
 }
 
+/**
+ * SEC-ESCAPE-AUTHOR-NAME: contributor-controlled strings (git author names
+ * from unresolved commit authors) flow into the bot's PR comment. GitHub
+ * renders markdown but sanitizes raw HTML, so the dangerous primitives are
+ * markdown links (`[text](url)`) and image embeds (`![text](url)`) — an
+ * image link is enough to exfiltrate every reviewer's IP via a tracking
+ * pixel.
+ *
+ * Wrapping in backticks renders as inline code, which disables further
+ * markdown parsing inside the run. Strip embedded backticks first so the
+ * wrapper can't be escaped.
+ */
+function escapeUserText(s: string): string {
+  return '`' + (s ?? '').replace(/`/g, '') + '`'
+}
+
 function documentLink(kind: Kind): string {
   const longName =
     kind === 'dco' ? 'Developer Certificate of Origin' : 'Contributor License Agreement'
@@ -99,23 +115,29 @@ function render(
   ) {
     text += `**${signed_count}** out of **${signed_count + not_signed_count}** committers have signed the ${abbrev}.`
     committerMap.signed.forEach(signedCommitter => {
-      // BUG-MARKDOWN-LINK fix: proper [text](url) form.
+      // BUG-MARKDOWN-LINK fix: proper [text](url) form. `signedCommitter.name`
+      // here is the resolved GitHub login (alphanumeric + hyphen) — safe.
       text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`
     })
     committerMap.notSigned.forEach(unsignedCommitter => {
       // BUG-AT-MENTION-GHOST fix: only @-mention when committer has a resolved
       // GitHub user id; otherwise list the raw git author name without `@`.
+      // SEC-ESCAPE-AUTHOR-NAME: the unresolved branch's name is contributor-
+      // controlled (a git author header — any Unicode), so wrap in backticks
+      // to neutralize Markdown (links, images, code fences) before render.
       const mention = unsignedCommitter.id
         ? `@${unsignedCommitter.name}`
-        : unsignedCommitter.name
+        : escapeUserText(unsignedCommitter.name)
       text += `<br/>:x: ${mention}`
     })
     text += '<br/>'
   }
 
   if (committerMap?.unknown && committerMap.unknown.length > 0) {
+    // SEC-ESCAPE-AUTHOR-NAME: every entry here is by definition unresolved —
+    // names are raw git author strings. Wrap each in backticks.
     const seem = committerMap.unknown.length > 1 ? 'seem' : 'seems'
-    const committerNames = committerMap.unknown.map(c => c.name)
+    const committerNames = committerMap.unknown.map(c => escapeUserText(c.name))
     text += `**${committerNames.join(', ')}** ${seem} not to be a GitHub user.`
     text += ` You need a GitHub account to be able to sign the ${abbrev}. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/>`
   }

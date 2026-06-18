@@ -25579,6 +25579,9 @@ function signComment(kind) {
 function botSignature(kind) {
   return kind === "dco" ? "<sub>Posted by the **Self-Hosted DCO Assistant bot**.</sub>" : "<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>";
 }
+function escapeUserText(s) {
+  return "`" + (s ?? "").replace(/`/g, "") + "`";
+}
 function documentLink(kind) {
   const longName = kind === "dco" ? "Developer Certificate of Origin" : "Contributor License Agreement";
   return `[${longName}](${getPathToDocument()})`;
@@ -25609,14 +25612,14 @@ function render(kind, signed, committerMap) {
       text += `<br/>:white_check_mark: [${signedCommitter.name}](https://github.com/${signedCommitter.name})`;
     });
     committerMap.notSigned.forEach((unsignedCommitter) => {
-      const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : unsignedCommitter.name;
+      const mention = unsignedCommitter.id ? `@${unsignedCommitter.name}` : escapeUserText(unsignedCommitter.name);
       text += `<br/>:x: ${mention}`;
     });
     text += "<br/>";
   }
   if (committerMap?.unknown && committerMap.unknown.length > 0) {
     const seem = committerMap.unknown.length > 1 ? "seem" : "seems";
-    const committerNames = committerMap.unknown.map((c) => c.name);
+    const committerNames = committerMap.unknown.map((c) => escapeUserText(c.name));
     text += `**${committerNames.join(", ")}** ${seem} not to be a GitHub user.`;
     text += ` You need a GitHub account to be able to sign the ${abbrev}. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/>`;
   }
@@ -25894,10 +25897,14 @@ function logUnsignedCommitterDetails(committerMap) {
   if (notSigned.length === 0) return;
   info(`Unsigned committers (${notSigned.length}):`);
   for (const c of notSigned) {
-    const email = c.email ? ` <${c.email}>` : "";
+    const name = stripNewlines(c.name);
+    const email = c.email ? ` <${stripNewlines(c.email)}>` : "";
     const ghUser = c.id ? ` (GitHub user id ${c.id})` : " (no GitHub user resolved)";
-    info(`  - ${c.name}${email}${ghUser}`);
+    info(`  - ${name}${email}${ghUser}`);
   }
+}
+function stripNewlines(s) {
+  return (s ?? "").replace(/[\r\n]/g, " ");
 }
 
 // src/pullrequest/pullRequestLock.ts

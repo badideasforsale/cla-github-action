@@ -72,3 +72,44 @@ describe('BUG-404-STRING (#155): auto-create signatures file on first run', () =
     expect(mockedCreate).not.toHaveBeenCalled()
   })
 })
+
+import { logUnsignedCommitterDetails } from '../src/setupClaCheck'
+const mockedInfo = jest.mocked(core.info)
+
+describe('SEC-STRIP-NEWLINES: workflow-command injection via core.info', () => {
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
+
+  it('strips \\r and \\n from contributor-controlled name + email before logging', () => {
+    logUnsignedCommitterDetails({
+      signed: [],
+      notSigned: [
+        {
+          name: 'evil\n::add-mask::ghp_realtoken',
+          email: 'foo\r\n::error::injected',
+          id: 0 as any
+        } as any
+      ],
+      unknown: []
+    } as any)
+
+    // Pull every core.info() call's first argument.
+    const lines = mockedInfo.mock.calls.map(c => c[0])
+    // Header line + one detail line.
+    expect(lines.length).toBe(2)
+    // No emitted line contains CR or LF.
+    for (const l of lines) {
+      expect(l).not.toMatch(/[\r\n]/)
+    }
+    // The injection payloads must appear as literal text on the SAME line,
+    // not as standalone workflow commands.
+    expect(lines[1]).toContain('evil ::add-mask::ghp_realtoken')
+    expect(lines[1]).toContain('foo  ::error::injected')
+  })
+
+  it('returns silently when there are no unsigned committers', () => {
+    logUnsignedCommitterDetails({ signed: [], notSigned: [], unknown: [] } as any)
+    expect(mockedInfo).not.toHaveBeenCalled()
+  })
+})

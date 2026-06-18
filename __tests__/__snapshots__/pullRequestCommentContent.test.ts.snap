@@ -28,7 +28,7 @@ exports[`full-comment snapshots (regression detection) CLA — unknown committer
    - - -
    I have read the CLA Document and I hereby sign the CLA
    - - -
-   **Local Git Author** seems not to be a GitHub user. You need a GitHub account to be able to sign the CLA. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
+   **\`Local Git Author\`** seems not to be a GitHub user. You need a GitHub account to be able to sign the CLA. If you have already a GitHub account, please [add the email address used for this commit to your account](https://help.github.com/articles/why-are-my-commits-linked-to-the-wrong-user/#commits-are-not-linked-to-any-user).<br/><sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>
 <!-- cla-lite-bot:cla:wf:job -->"
 `;
 
