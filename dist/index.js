@@ -25329,13 +25329,14 @@ function getPullRequestNumber() {
 }
 
 // src/graphql.ts
+var MAX_PAGES = 50;
 async function getCommitters() {
   try {
     const octokit = await getOctokit2();
-    let committers = [];
-    let filteredCommitters = [];
-    let response = await octokit.graphql(`
-        query($owner:String! $name:String! $number:Int! $cursor:String!){
+    const committers = [];
+    const seenNames = /* @__PURE__ */ new Set();
+    const query = `
+        query($owner:String! $name:String! $number:Int! $cursor:String){
             repository(owner: $owner, name: $name) {
             pullRequest(number: $number) {
                 commits(first: 100, after: $cursor) {
@@ -25371,32 +25372,43 @@ async function getCommitters() {
                 }
             }
         }
-    }`.replace(/ /g, ""), {
-      owner: context2.repo.owner,
-      name: context2.repo.repo,
-      number: getPullRequestNumber(),
-      cursor: ""
-    });
-    response.repository.pullRequest.commits.edges.forEach((edge) => {
-      const commit = edge.node.commit;
-      const committer = extractUserFromCommit(commit);
-      const email = commit.author?.email || commit.committer?.email;
-      let user = {
-        name: committer.login || committer.name,
-        id: committer.databaseId || "",
-        email,
-        pullRequestNo: getPullRequestNumber()
-      };
-      if (committers.length === 0 || committers.map((c) => {
-        return c.name;
-      }).indexOf(user.name) < 0) {
-        committers.push(user);
+    }`.replace(/ /g, "");
+    let cursor = null;
+    let pages = 0;
+    while (true) {
+      const response = await octokit.graphql(query, {
+        owner: context2.repo.owner,
+        name: context2.repo.repo,
+        number: getPullRequestNumber(),
+        cursor
+      });
+      const page = response.repository.pullRequest.commits;
+      for (const edge of page.edges ?? []) {
+        const commit = edge.node.commit;
+        const committer = extractUserFromCommit(commit);
+        const email = commit.author?.email || commit.committer?.email;
+        const user = {
+          name: committer.login || committer.name,
+          id: committer.databaseId || "",
+          email,
+          pullRequestNo: getPullRequestNumber()
+        };
+        if (!seenNames.has(user.name)) {
+          seenNames.add(user.name);
+          committers.push(user);
+        }
       }
-    });
-    filteredCommitters = committers.filter((committer) => {
-      return committer.id !== 41898282;
-    });
-    return filteredCommitters;
+      if (!page.pageInfo?.hasNextPage) break;
+      pages++;
+      if (pages >= MAX_PAGES) {
+        warning(
+          `PR has more than ${MAX_PAGES * 100} commits; the CLA check will only verify the first ${MAX_PAGES * 100}. Split the PR or contact a maintainer.`
+        );
+        break;
+      }
+      cursor = page.pageInfo.endCursor;
+    }
+    return committers.filter((committer) => committer.id !== 41898282);
   } catch (e) {
     throw new Error(`graphql call to get the committers details failed: ${e}`);
   }
