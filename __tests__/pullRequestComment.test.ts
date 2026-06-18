@@ -34,7 +34,8 @@ jest.mock('../src/octokit', () => ({
         updateComment: mockUpdateComment
       }
     }
-  }))
+  })),
+  getExpectedCommenterLogin: jest.fn(async () => 'github-actions[bot]')
 }))
 jest.mock('../src/shared/getInputs', () => ({
   getUseDcoFlag: mockGetUseDcoFlag,
@@ -67,14 +68,21 @@ afterAll(() => {
 
 const map = (over: any = {}) => ({ signed: [], notSigned: [], unknown: [], ...over })
 
+// Helper: every bot-authored fixture must carry `user.login` so the
+// SEC-COMMENT-AUTHOR-FILTER (in src/pullrequest/pullRequestComment.ts) accepts it.
+const botUser = { login: 'github-actions[bot]', type: 'Bot' }
+const attackerUser = { login: 'pr-opener', type: 'User' }
+
 describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => {
   it('prefers the comment carrying THIS job\'s hidden marker', () => {
     const otherJobComment = {
       id: 1,
+      user: botUser,
       body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>\n<!-- cla-lite-bot:cla:CLA-frontend:other-job -->'
     }
     const thisJobComment = {
       id: 2,
+      user: botUser,
       body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>\n<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
     }
     mockListComments.mockResolvedValueOnce({ data: [otherJobComment, thisJobComment] })
@@ -98,6 +106,7 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
     // pick it up so the v2→v3 migration is seamless.
     const legacyComment = {
       id: 99,
+      user: botUser,
       body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>'
     }
     mockListComments.mockResolvedValueOnce({ data: [legacyComment] })
@@ -117,6 +126,7 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
     // the comment by brand string.
     const v3CommentNoMarker = {
       id: 100,
+      user: botUser,
       body: '<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>'
     }
     mockListComments.mockResolvedValueOnce({ data: [v3CommentNoMarker] })
@@ -133,10 +143,11 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
     mockListComments.mockResolvedValueOnce({
       data: [
         // unrelated user comment
-        { id: 7, body: 'I have a question about this PR' },
+        { id: 7, user: attackerUser, body: 'I have a question about this PR' },
         // a different repo's bot — wrong workflow name in marker
         {
           id: 8,
+          user: botUser,
           body: 'something\n<!-- cla-lite-bot:cla:other-workflow:other-job -->'
         }
       ]
@@ -153,10 +164,12 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
     mockGetUseDcoFlag.mockReturnValue('true')
     const claComment = {
       id: 1,
+      user: botUser,
       body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>'
     }
     const dcoComment = {
       id: 2,
+      user: botUser,
       body: '<sub>Posted by the ****DCO Assistant Lite bot****.</sub>'
     }
     mockListComments.mockResolvedValueOnce({ data: [claComment, dcoComment] })
@@ -166,6 +179,71 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
         // DCO mode should ignore the CLA-bot comment and pick the DCO one.
         expect(mockUpdateComment).toHaveBeenCalledWith(
           expect.objectContaining({ comment_id: 2 })
+        )
+      })
+  })
+})
+
+describe('getComment — SEC-COMMENT-AUTHOR-FILTER', () => {
+  it('ignores an attacker comment containing the marker (DoS prevention)', () => {
+    // The attack: PR opener reads the public workflow yaml, predicts the
+    // marker `<!-- cla-lite-bot:cla:<workflow>:<job> -->`, posts a comment
+    // containing it. Pre-fix, the action would adopt that comment, fail to
+    // updateComment (not the caller's), and setFailed — permanently
+    // blocking the PR until a maintainer intervenes.
+    const attackerComment = {
+      id: 666,
+      user: attackerUser,
+      body: 'hey look at me\n<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
+    }
+    mockListComments.mockResolvedValueOnce({ data: [attackerComment] })
+
+    return prCommentSetup(map({ notSigned: [{ name: 'a', id: 1 }] }), [{ name: 'a', id: 1 }])
+      .then(() => {
+        // The attacker comment must NOT be adopted.
+        expect(mockUpdateComment).not.toHaveBeenCalled()
+        // Instead we create a fresh bot comment.
+        expect(mockCreateComment).toHaveBeenCalled()
+      })
+  })
+
+  it('ignores an attacker comment containing the legacy brand substring', () => {
+    const attackerComment = {
+      id: 667,
+      user: attackerUser,
+      body: 'hello\n<sub>Posted by the **CLA Assistant Lite bot**.</sub>\nbye'
+    }
+    mockListComments.mockResolvedValueOnce({ data: [attackerComment] })
+
+    return prCommentSetup(map({ notSigned: [{ name: 'a', id: 1 }] }), [{ name: 'a', id: 1 }])
+      .then(() => {
+        expect(mockUpdateComment).not.toHaveBeenCalled()
+        expect(mockCreateComment).toHaveBeenCalled()
+      })
+  })
+
+  it('still picks the real bot comment when both exist on the same PR', () => {
+    const attackerComment = {
+      id: 666,
+      user: attackerUser,
+      body: '<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
+    }
+    const realBotComment = {
+      id: 7,
+      user: botUser,
+      body: '<sub>Posted by the **CLA Assistant Lite bot**.</sub>\n<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
+    }
+    mockListComments.mockResolvedValueOnce({
+      data: [attackerComment, realBotComment]
+    })
+
+    return prCommentSetup(map({ notSigned: [{ name: 'a', id: 1 }] }), [{ name: 'a', id: 1 }])
+      .then(() => {
+        expect(mockUpdateComment).toHaveBeenCalledWith(
+          expect.objectContaining({ comment_id: 7 })
+        )
+        expect(mockUpdateComment).not.toHaveBeenCalledWith(
+          expect.objectContaining({ comment_id: 666 })
         )
       })
   })

@@ -11,6 +11,10 @@ type OctokitInstance = ReturnType<typeof createOctokitClient>
 let primaryCache: OctokitInstance | undefined
 let storageCache: OctokitInstance | undefined
 let appOctokitMemo: OctokitInstance | null | undefined
+// Cached login of the identity we authenticate as. `''` is the sentinel for
+// "couldn't determine"; `undefined` is "not yet computed". See
+// getExpectedCommenterLogin() below for why we distinguish.
+let expectedLoginCache: string | undefined
 
 /**
  * Reset the module-level client caches. Test-only — production code should
@@ -20,6 +24,49 @@ export function _resetOctokitCacheForTests(): void {
   primaryCache = undefined
   storageCache = undefined
   appOctokitMemo = undefined
+  expectedLoginCache = undefined
+}
+
+/**
+ * SEC-COMMENT-AUTHOR-FILTER: returns the GitHub login that THIS action will
+ * post comments as, so the bot-comment lookup in pullRequestComment.getComment
+ * can ignore comments authored by anyone else.
+ *
+ * Without this filter, any PR opener could pre-empt the lookup by posting a
+ * comment matching the marker or the legacy brand substring. The bot would
+ * then try to `updateComment` on the attacker-owned comment, GitHub would
+ * reject it (not the caller's comment), and the action would setFailed.
+ * Permanent DoS for that PR until a maintainer manually intervenes.
+ *
+ * - App auth: derives the bot login from `apps.getAuthenticated()` (returns
+ *   `<app-slug>[bot]`). Costs one API call, memoized.
+ * - GITHUB_TOKEN: always `github-actions[bot]`, no API call.
+ * - On any failure to determine: returns `null` and logs a warning. The
+ *   caller treats this as "fall back to broad matching" — i.e. preserves the
+ *   pre-fix behavior in the (exotic) case the identity lookup itself broke.
+ */
+export async function getExpectedCommenterLogin(): Promise<string | null> {
+  if (expectedLoginCache !== undefined) {
+    return expectedLoginCache === '' ? null : expectedLoginCache
+  }
+  const app = await tryAppOctokit()
+  if (app) {
+    try {
+      const { data } = await app.rest.apps.getAuthenticated()
+      expectedLoginCache = `${data.slug}[bot]`
+      return expectedLoginCache
+    } catch (err: any) {
+      core.warning(
+        `Could not determine the GitHub App's bot login (${err?.message || err}). ` +
+          `Comment-author filtering will be skipped; the bot may match a foreign comment.`
+      )
+      expectedLoginCache = ''
+      return null
+    }
+  }
+  // GITHUB_TOKEN — the runner posts as github-actions[bot] always.
+  expectedLoginCache = 'github-actions[bot]'
+  return expectedLoginCache
 }
 
 /**

@@ -1,4 +1,4 @@
-import { getOctokit } from '../octokit'
+import { getOctokit, getExpectedCommenterLogin } from '../octokit'
 import { context } from '@actions/github'
 import signatureWithPRComment from './signatureComment'
 import { commentContent, commentMarker } from './pullRequestCommentContent'
@@ -63,6 +63,16 @@ async function getComment() {
     const octokit = await getOctokit()
     const response = await octokit.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: getPullRequestNumber() })
 
+    // SEC-COMMENT-AUTHOR-FILTER: only consider comments authored by THIS
+    // action's bot identity. Without this filter, any PR opener could post a
+    // comment matching the marker (predictable from public workflow yaml) or
+    // the legacy brand substring, the bot would adopt it, fail to edit it,
+    // and setFailed — a permanent DoS for the PR. On rare lookup failure we
+    // get null and fall through to broad matching (warned in octokit.ts).
+    const expectedLogin = await getExpectedCommenterLogin()
+    const isOurs = (comment: any): boolean =>
+      expectedLogin === null || comment.user?.login === expectedLogin
+
     // Prefer comments with this job's hidden HTML-comment marker — keeps
     // multiple CLA/DCO jobs in one workflow from stomping each other
     // (BUG-COMMENT-MARKER / upstream #153). Falls back to the legacy
@@ -70,7 +80,7 @@ async function getComment() {
     // next update those comments will be stamped with a marker.
     const marker = commentMarker()
     const markerMatch = response.data.find(comment =>
-      comment.body?.includes(marker)
+      isOurs(comment) && comment.body?.includes(marker)
     )
     if (markerMatch) return markerMatch
 
@@ -82,7 +92,7 @@ async function getComment() {
     const legacy = isDco
       ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m
       : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m
-    return response.data.find(comment => comment.body?.match(legacy))
+    return response.data.find(comment => isOurs(comment) && comment.body?.match(legacy))
   } catch (error) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error.message}`)
   }

@@ -25160,6 +25160,28 @@ function createAppAuth(options) {
 var primaryCache;
 var storageCache;
 var appOctokitMemo;
+var expectedLoginCache;
+async function getExpectedCommenterLogin() {
+  if (expectedLoginCache !== void 0) {
+    return expectedLoginCache === "" ? null : expectedLoginCache;
+  }
+  const app = await tryAppOctokit();
+  if (app) {
+    try {
+      const { data } = await app.rest.apps.getAuthenticated();
+      expectedLoginCache = `${data.slug}[bot]`;
+      return expectedLoginCache;
+    } catch (err) {
+      warning(
+        `Could not determine the GitHub App's bot login (${err?.message || err}). Comment-author filtering will be skipped; the bot may match a foreign comment.`
+      );
+      expectedLoginCache = "";
+      return null;
+    }
+  }
+  expectedLoginCache = "github-actions[bot]";
+  return expectedLoginCache;
+}
 async function getOctokit2() {
   if (primaryCache) return primaryCache;
   const app = await tryAppOctokit();
@@ -25681,14 +25703,16 @@ async function getComment() {
   try {
     const octokit = await getOctokit2();
     const response = await octokit.rest.issues.listComments({ owner: context2.repo.owner, repo: context2.repo.repo, issue_number: getPullRequestNumber() });
+    const expectedLogin = await getExpectedCommenterLogin();
+    const isOurs = (comment) => expectedLogin === null || comment.user?.login === expectedLogin;
     const marker = commentMarker();
     const markerMatch = response.data.find(
-      (comment) => comment.body?.includes(marker)
+      (comment) => isOurs(comment) && comment.body?.includes(marker)
     );
     if (markerMatch) return markerMatch;
     const isDco = getUseDcoFlag() === "true";
     const legacy = isDco ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m;
-    return response.data.find((comment) => comment.body?.match(legacy));
+    return response.data.find((comment) => isOurs(comment) && comment.body?.match(legacy));
   } catch (error2) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error2.message}`);
   }

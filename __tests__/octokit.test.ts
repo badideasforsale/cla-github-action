@@ -6,6 +6,7 @@
  */
 
 const mockGetRepoInstallation = jest.fn()
+const mockGetAuthenticated = jest.fn()
 
 // `getOctokit` is called multiple times per test: the App-only client used
 // for installation discovery, then the installation-scoped client for real
@@ -14,11 +15,16 @@ const mockCreateOctokitClient = jest.fn((token: string, opts?: any) => {
   if (opts?.authStrategy) {
     // App-auth client. Two flavors:
     //   1. discovery (no auth.installationId) — exposes apps.getRepoInstallation
-    //   2. installation-scoped (auth.installationId set)
+    //   2. installation-scoped (auth.installationId set) — exposes apps.getAuthenticated
     return {
       _token: 'app',
       _auth: opts.auth,
-      rest: { apps: { getRepoInstallation: mockGetRepoInstallation } },
+      rest: {
+        apps: {
+          getRepoInstallation: mockGetRepoInstallation,
+          getAuthenticated: mockGetAuthenticated
+        }
+      },
       graphql: jest.fn()
     }
   }
@@ -37,6 +43,7 @@ import {
   getOctokit,
   getStorageOctokit,
   isPersonalAccessTokenPresent,
+  getExpectedCommenterLogin,
   _resetOctokitCacheForTests
 } from '../src/octokit'
 
@@ -235,5 +242,50 @@ describe('App auth (M5.2b)', () => {
     await getStorageOctokit({ isCrossRepo: true })
 
     expect(mockGetRepoInstallation).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('getExpectedCommenterLogin — SEC-COMMENT-AUTHOR-FILTER', () => {
+  const PEM = '-----BEGIN RSA PRIVATE KEY-----\nfake\n-----END RSA PRIVATE KEY-----'
+
+  it('returns github-actions[bot] for GITHUB_TOKEN auth, no API call', async () => {
+    const login = await getExpectedCommenterLogin()
+    expect(login).toBe('github-actions[bot]')
+    expect(mockGetAuthenticated).not.toHaveBeenCalled()
+  })
+
+  it('derives bot login from apps.getAuthenticated() under App auth', async () => {
+    configureAppInputs('12345', '67890')
+    process.env.GITHUB_APP_PRIVATE_KEY = PEM
+    mockGetAuthenticated.mockResolvedValueOnce({ data: { slug: 'cla-bot' } })
+
+    const login = await getExpectedCommenterLogin()
+    expect(login).toBe('cla-bot[bot]')
+    expect(mockGetAuthenticated).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns null and warns when apps.getAuthenticated() fails', async () => {
+    configureAppInputs('12345', '67890')
+    process.env.GITHUB_APP_PRIVATE_KEY = PEM
+    mockGetAuthenticated.mockRejectedValueOnce(new Error('boom'))
+
+    const login = await getExpectedCommenterLogin()
+    expect(login).toBeNull()
+    const warnings = (jest.mocked(core.warning).mock.calls as any[][])
+      .map(c => c[0])
+      .join('\n')
+    expect(warnings).toMatch(/Could not determine the GitHub App's bot login/)
+  })
+
+  it('memoizes: repeated calls do not re-hit apps.getAuthenticated()', async () => {
+    configureAppInputs('12345', '67890')
+    process.env.GITHUB_APP_PRIVATE_KEY = PEM
+    mockGetAuthenticated.mockResolvedValueOnce({ data: { slug: 'cla-bot' } })
+
+    await getExpectedCommenterLogin()
+    await getExpectedCommenterLogin()
+    await getExpectedCommenterLogin()
+
+    expect(mockGetAuthenticated).toHaveBeenCalledTimes(1)
   })
 })
