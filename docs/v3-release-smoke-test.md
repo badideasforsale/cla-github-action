@@ -137,7 +137,23 @@ Trigger a sign that produces a signatures-file commit. View the commit on `main`
 
 Then set **only one** of the two inputs (delete the other) and trigger another sign. The workflow run log should warn that both are required and fall back to the token identity.
 
-### 3d — GitHub App auth
+### 3d — `@org` and `@org/team` allowlist entries
+
+Tests the v3.0.0 feature that extends `allowlist` to accept `@org` (every org member exempted) and `@org/team` (every team member, including child teams, exempted).
+
+- Pick an org you own and can install the action on. List its members or a specific team in `allowlist`:
+  ```yaml
+  allowlist: '@your-org,@your-org/your-team'
+  ```
+- Open a PR from a member of that org (who has NOT previously signed).
+
+**Pass:** the org member's PR goes green without a sign comment — the allowlist expansion picked them up. Workflow logs show no warning. The "please sign" comment either doesn't post (if they're the only committer) or omits them from the ✗ list.
+
+**Negative test:** open a PR with `allowlist: '@nonexistent-org-1234'` (something that won't resolve). Workflow log should `core.warning` about the failed expansion and continue — the CLA check still runs for everyone, never blocked by the lookup failure.
+
+**Auth note:** team lookups always need `read:org` scope — `GITHUB_TOKEN` won't have it. Either install your App on the org (App auth covers it via the installation token) or use a PAT with `read:org` for this test.
+
+### 3e — GitHub App auth
 
 The headline v3 feature. ~10 min one-time setup.
 
