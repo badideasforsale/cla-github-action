@@ -133,11 +133,11 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - **Documented defaults for every input** ([M6.4](./.plan/get-well-plan.md)). README's "Inputs" table now shows a `Default` column alongside each input; absent default = required. `action.yml` is the source of truth.
 - **DCO parity in action.yml + README banner** ([M6.5](./.plan/get-well-plan.md)). Input descriptions now mention "CLA/DCO" rather than CLA-only; README's top-of-file callout tells DCO users that everything else applies modulo terminology.
 - **OpenSSF Scorecard workflow** ([M6.8](./.plan/get-well-plan.md)). `.github/workflows/scorecard.yml` runs weekly, publishes to securityscorecards.dev, and uploads SARIF results to code-scanning. Read-only at the top level; per-job least-privilege. SHA-pinned per M1.16.
+- **`@org` and `@org/team` allowlist syntax** ([M6.1](./.plan/get-well-plan.md), promoted from v3.1.x). The `allowlist` input now accepts entries like `@temporal-io` (every member of that org) and `@acme/security` (every member of that team, including child teams via GraphQL `membership: ALL`) alongside the existing plain-login + wildcard entries. Resolved live at runtime — people who join the org/team later pick up automatically on their next PR. Per-entry failure (private org without `read:org`, network blip, typo) emits a `core.warning` and is skipped; never blocks the CLA flow. Public orgs are visible to the default `GITHUB_TOKEN`; private orgs and any team lookup need a PAT or App installation with `read:org`. Paginated with a 50-page (5000-member) safety cap per entry. Equivalent shorthand for the repo's own org remains `exempt-repo-org-members: 'true'`.
 
 ### Deferred to v3.1.x
 
 These M6 items aren't on the critical path for v3.0 and ship later:
-- `FEAT-ALLOWLIST-TEAMS` — team-based allowlist (`@org/team` entries)
 - `FEAT-ALLOWLIST-FROM-FILE` — `allowlist-file:` input for long lists
 - `FEAT-LABELS` — read/write CLA-status labels on PRs
 - `FEAT-CSV-MIGRATION-SCRIPT` — convert cla-assistant.io CSV exports to our JSON

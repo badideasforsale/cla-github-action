@@ -1,28 +1,28 @@
 import { CommittersDetails } from './interfaces'
 import * as input from './shared/getInputs'
+import {
+  parseAllowlistEntries,
+  expandOrgsAndTeams
+} from './allowlistOrgsAndTeams'
 
 const escapeRegExp = (s: string): string =>
   s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 
 /**
- * Returns true if `name` matches any pattern in `allowlistInput`.
+ * Returns true if `name` matches any pattern in `patterns`.
  *
- * `allowlistInput` is the raw comma-separated string from the action's
- * `allowlist` input — patterns may include `*` as a wildcard.
+ * Patterns are plain user logins or wildcard patterns (`bot*`). Matching is
+ * case-insensitive (BUG-ALLOWLIST-CASE / upstream #169 — GitHub usernames
+ * don't preserve case, so `Copilot` and `copilot` must compare equal).
+ * Wildcards are anchored: `foo*` matches `foobar` but not `barfoo`.
  *
- * Matching is case-insensitive (BUG-ALLOWLIST-CASE / upstream #169 —
- * GitHub usernames don't preserve case, so `Copilot` and `copilot` must
- * compare equal here).
- *
- * Wildcards are anchored: a pattern of `foo*` matches `foobar` but not
- * `barfoo`. The prior implementation used an unanchored test which would
- * have considered `barfoo` a match — closer to "contains foo" than "starts
- * with foo".
+ * Note: `@org` and `@org/team` entries are stripped out before this is
+ * called — they get expanded to plain logins by allowlistOrgsAndTeams.ts.
  */
-export function matchesAllowlist(name: string, allowlistInput: string): boolean {
-  if (!allowlistInput) return false
+export function matchesAllowlist(name: string, patterns: string[]): boolean {
+  if (!patterns.length) return false
   const lower = name.toLowerCase()
-  return allowlistInput.split(',').some(rawPattern => {
+  return patterns.some(rawPattern => {
     const pattern = rawPattern.trim().toLowerCase()
     if (!pattern) return false
     if (pattern.includes('*')) {
@@ -33,11 +33,29 @@ export function matchesAllowlist(name: string, allowlistInput: string): boolean 
   })
 }
 
-export function checkAllowList(
+/**
+ * Filter committers down to those who still need to sign the CLA.
+ *
+ * An allowlist entry can be a plain user login, a wildcard pattern, an
+ * `@org` (every member of that org is allowlisted), or an `@org/team`
+ * (every member of that team, including child teams). Org/team membership
+ * is resolved via GraphQL at call time and cached for the run.
+ *
+ * Per-entry failures (private org with no read:org scope, non-existent
+ * org/team, network) emit a warning and are skipped — never blocks the
+ * primary CLA flow.
+ */
+export async function checkAllowList(
   committers: CommittersDetails[]
-): CommittersDetails[] {
-  const patterns = input.getAllowListItem()
-  return committers.filter(
-    committer => committer && !matchesAllowlist(committer.name, patterns)
-  )
+): Promise<CommittersDetails[]> {
+  const raw = input.getAllowListItem()
+  const parsed = parseAllowlistEntries(raw)
+  const extraLogins = await expandOrgsAndTeams(parsed)
+
+  return committers.filter(committer => {
+    if (!committer) return false
+    if (matchesAllowlist(committer.name, parsed.patterns)) return false
+    if (extraLogins.has(committer.name.toLowerCase())) return false
+    return true
+  })
 }

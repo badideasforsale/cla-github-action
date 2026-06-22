@@ -23817,28 +23817,6 @@ var getGitHubAppInstallationId = () => getInput("github-app-installation-id", { 
 var getBotName = () => getInput("bot-name", { required: false });
 var getBotEmail = () => getInput("bot-email", { required: false });
 
-// src/checkAllowList.ts
-var escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-function matchesAllowlist(name, allowlistInput) {
-  if (!allowlistInput) return false;
-  const lower = name.toLowerCase();
-  return allowlistInput.split(",").some((rawPattern) => {
-    const pattern = rawPattern.trim().toLowerCase();
-    if (!pattern) return false;
-    if (pattern.includes("*")) {
-      const regex = "^" + escapeRegExp(pattern).split("\\*").join(".*") + "$";
-      return new RegExp(regex).test(lower);
-    }
-    return pattern === lower;
-  });
-}
-function checkAllowList(committers) {
-  const patterns = getAllowListItem();
-  return committers.filter(
-    (committer) => committer && !matchesAllowlist(committer.name, patterns)
-  );
-}
-
 // node_modules/@octokit/oauth-methods/dist-bundle/index.js
 function requestToOAuthBaseUrl(request2) {
   const endpointDefaults = request2.endpoint.DEFAULTS;
@@ -25277,6 +25255,191 @@ function requirePersonalAccessToken() {
   return t;
 }
 
+// src/allowlistOrgsAndTeams.ts
+var MAX_PAGES = 50;
+function parseAllowlistEntries(raw) {
+  const patterns = [];
+  const orgs = [];
+  const teams = [];
+  if (!raw) return { patterns, orgs, teams };
+  const orgSlug = /^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})$/;
+  const teamSlug = /^[A-Za-z0-9._-]{1,}$/;
+  for (const rawEntry of raw.split(",")) {
+    const entry = rawEntry.trim();
+    if (!entry) continue;
+    if (!entry.startsWith("@")) {
+      patterns.push(entry);
+      continue;
+    }
+    const body = entry.slice(1);
+    const slash = body.indexOf("/");
+    if (slash === -1) {
+      if (!orgSlug.test(body)) {
+        warning(
+          `Allowlist entry "${entry}" is not a valid GitHub org slug; skipping.`
+        );
+        continue;
+      }
+      orgs.push(body);
+    } else {
+      const org = body.slice(0, slash);
+      const team = body.slice(slash + 1);
+      if (!orgSlug.test(org) || !teamSlug.test(team)) {
+        warning(
+          `Allowlist entry "${entry}" is not a valid @org/team reference; skipping.`
+        );
+        continue;
+      }
+      teams.push({ org, team });
+    }
+  }
+  const seenOrgs = /* @__PURE__ */ new Set();
+  const dedupedOrgs = orgs.filter((o) => {
+    const key = o.toLowerCase();
+    if (seenOrgs.has(key)) return false;
+    seenOrgs.add(key);
+    return true;
+  });
+  const seenTeams = /* @__PURE__ */ new Set();
+  const dedupedTeams = teams.filter((t) => {
+    const key = `${t.org.toLowerCase()}/${t.team.toLowerCase()}`;
+    if (seenTeams.has(key)) return false;
+    seenTeams.add(key);
+    return true;
+  });
+  return { patterns, orgs: dedupedOrgs, teams: dedupedTeams };
+}
+async function expandOrgsAndTeams(parsed) {
+  const logins = /* @__PURE__ */ new Set();
+  if (parsed.orgs.length === 0 && parsed.teams.length === 0) {
+    return logins;
+  }
+  const octokit = await getOctokit2();
+  for (const org of parsed.orgs) {
+    try {
+      const members = await fetchOrgMembers(octokit, org);
+      for (const m of members) logins.add(m.toLowerCase());
+    } catch (err) {
+      warning(
+        `Could not expand allowlist entry "@${org}" \u2014 falling back to CLA check for its members. If "${org}" is a private org, your token needs read:org scope. (${err?.message || err})`
+      );
+    }
+  }
+  for (const { org, team } of parsed.teams) {
+    try {
+      const members = await fetchTeamMembers(octokit, org, team);
+      for (const m of members) logins.add(m.toLowerCase());
+    } catch (err) {
+      warning(
+        `Could not expand allowlist entry "@${org}/${team}" \u2014 falling back to CLA check for its members. Team lookups always require read:org. (${err?.message || err})`
+      );
+    }
+  }
+  return logins;
+}
+async function fetchOrgMembers(octokit, org) {
+  const out = [];
+  let cursor = null;
+  let pages = 0;
+  while (true) {
+    const response = await octokit.graphql(
+      `query($org: String!, $cursor: String) {
+        organization(login: $org) {
+          membersWithRole(first: 100, after: $cursor) {
+            nodes { login }
+            pageInfo { endCursor hasNextPage }
+          }
+        }
+      }`,
+      { org, cursor }
+    );
+    if (!response?.organization) {
+      throw new Error(`organization "${org}" not found or not visible to this token`);
+    }
+    const page = response.organization.membersWithRole;
+    for (const node of page.nodes ?? []) {
+      if (node?.login) out.push(node.login);
+    }
+    if (!page.pageInfo?.hasNextPage) break;
+    pages++;
+    if (pages >= MAX_PAGES) {
+      warning(
+        `Org "@${org}" has more than ${MAX_PAGES * 100} members; truncating allowlist expansion.`
+      );
+      break;
+    }
+    cursor = page.pageInfo.endCursor;
+  }
+  return out;
+}
+async function fetchTeamMembers(octokit, org, team) {
+  const out = [];
+  let cursor = null;
+  let pages = 0;
+  while (true) {
+    const response = await octokit.graphql(
+      `query($org: String!, $team: String!, $cursor: String) {
+        organization(login: $org) {
+          team(slug: $team) {
+            members(first: 100, after: $cursor, membership: ALL) {
+              nodes { login }
+              pageInfo { endCursor hasNextPage }
+            }
+          }
+        }
+      }`,
+      { org, team, cursor }
+    );
+    const teamNode = response?.organization?.team;
+    if (!teamNode) {
+      throw new Error(
+        `team "${org}/${team}" not found or not visible to this token`
+      );
+    }
+    const page = teamNode.members;
+    for (const node of page.nodes ?? []) {
+      if (node?.login) out.push(node.login);
+    }
+    if (!page.pageInfo?.hasNextPage) break;
+    pages++;
+    if (pages >= MAX_PAGES) {
+      warning(
+        `Team "@${org}/${team}" has more than ${MAX_PAGES * 100} members; truncating allowlist expansion.`
+      );
+      break;
+    }
+    cursor = page.pageInfo.endCursor;
+  }
+  return out;
+}
+
+// src/checkAllowList.ts
+var escapeRegExp = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+function matchesAllowlist(name, patterns) {
+  if (!patterns.length) return false;
+  const lower = name.toLowerCase();
+  return patterns.some((rawPattern) => {
+    const pattern = rawPattern.trim().toLowerCase();
+    if (!pattern) return false;
+    if (pattern.includes("*")) {
+      const regex = "^" + escapeRegExp(pattern).split("\\*").join(".*") + "$";
+      return new RegExp(regex).test(lower);
+    }
+    return pattern === lower;
+  });
+}
+async function checkAllowList(committers) {
+  const raw = getAllowListItem();
+  const parsed = parseAllowlistEntries(raw);
+  const extraLogins = await expandOrgsAndTeams(parsed);
+  return committers.filter((committer) => {
+    if (!committer) return false;
+    if (matchesAllowlist(committer.name, parsed.patterns)) return false;
+    if (extraLogins.has(committer.name.toLowerCase())) return false;
+    return true;
+  });
+}
+
 // src/orgExemption.ts
 async function applyOrgExemption(committers) {
   if (getExemptRepoOrgMembers() !== "true") {
@@ -25351,7 +25514,7 @@ function getPullRequestNumber() {
 }
 
 // src/graphql.ts
-var MAX_PAGES = 50;
+var MAX_PAGES2 = 50;
 async function getCommitters() {
   try {
     const octokit = await getOctokit2();
@@ -25422,9 +25585,9 @@ async function getCommitters() {
       }
       if (!page.pageInfo?.hasNextPage) break;
       pages++;
-      if (pages >= MAX_PAGES) {
+      if (pages >= MAX_PAGES2) {
         warning(
-          `PR has more than ${MAX_PAGES * 100} commits; the CLA check will only verify the first ${MAX_PAGES * 100}. Split the PR or contact a maintainer.`
+          `PR has more than ${MAX_PAGES2 * 100} commits; the CLA check will only verify the first ${MAX_PAGES2 * 100}. Split the PR or contact a maintainer.`
         );
         break;
       }
@@ -25826,7 +25989,7 @@ async function checkIfLastWorkFlowFailed(run2) {
 async function setupClaCheck() {
   let committerMap = getInitialCommittersMap();
   let committers = await getCommitters();
-  committers = checkAllowList(committers);
+  committers = await checkAllowList(committers);
   committers = await applyOrgExemption(committers);
   const { claFileContent, sha } = await getCLAFileContentandSHA(
     committers,

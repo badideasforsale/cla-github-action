@@ -61,7 +61,7 @@ jobs:
           path-to-document: 'https://github.com/cla-assistant/github-action/blob/master/SAPCLA.md' # e.g. a CLA or a DCO document
           # branch should not be protected
           branch: 'main'
-          allowlist: user1,bot*
+          allowlist: 'user1,bot*,@your-org,@your-org/your-team'
 
          # the followings are the optional inputs - If the optional inputs are not given, then default values will be taken
           #remote-organization-name: enter the remote organization name where the signatures should be stored (Default is storing the signatures in the same repository)
@@ -119,9 +119,30 @@ and `remote-repository-name`: `<your repo name>` in your CLA workflow file.
 
 ![signature-storage-file](https://github.com/cla-assistant/github-action/blob/master/images/signature-storage-file.gif?raw=true)
 
-#### 5. Users and bots in allowlist
+#### 5. Users, bots, orgs, and teams in allowlist
 
-If a GitHub username is included in the allowlist, they will not be required to sign a CLA. You can make use of this feature If you don't want your colleagues working in the same team/organisation to sign a CLA. And also, since there's no way for bot users (such as Dependabot or Greenkeeper) to sign a CLA, you may want to add them in `allowlist`. You can do so by adding their names in a comma separated string to the `allowlist` input in the CLA  workflow file(in this case `dependabot[bot],greenkeeper[bot]`). You can also use wildcard symbol in case you want to allow all bot users something like `bot*`.
+Add anyone you don't want to require a CLA from to the `allowlist` input — comma-separated. Four entry shapes are supported:
+
+| Shape | Example | Matches |
+|---|---|---|
+| Plain login | `dependabot[bot]` | exact GitHub login (case-insensitive) |
+| Wildcard | `bot*` | any login starting with `bot` (anchored — `xbotx` does NOT match) |
+| `@org` | `@temporal-io` | every member of that GitHub org |
+| `@org/team` | `@acme/security` | every member of that team, including child teams |
+
+The org/team forms are useful when an organization has signed a corporate CLA on behalf of all its engineers — you don't have to maintain a per-user list. Membership is resolved live via GraphQL at action runtime; people who join the org later are picked up automatically on the next PR they open. Combinable in one input:
+
+```yml
+allowlist: 'dependabot[bot],*[bot],@temporal-io,@acme/security'
+```
+
+> [!IMPORTANT]
+> **Auth requirements for `@org` / `@org/team`:**
+> - **Public orgs** are visible to the default `GITHUB_TOKEN` — no setup needed.
+> - **Private orgs** need `read:org` scope. Use a PAT (`PERSONAL_ACCESS_TOKEN`) or a GitHub App installed in that org.
+> - **Team lookups always require `read:org`** — teams are private by default, even inside public orgs.
+>
+> Per-entry failure is soft: if `@some-org` can't be resolved (private org without scope, network blip, typo), the action logs a warning and continues. The CLA check is never blocked by an allowlist-expansion failure — committers in that unresolved entry simply fall through to the normal CLA flow.
 
 ##### Demo for step 5
 
@@ -192,7 +213,7 @@ Inputs without a default are required. `action.yml` is the source of truth; this
 | `path-to-signatures` | `./signatures/cla.json` | Path inside the storage repo for the JSON file holding signatures. | `signatures/version1/cla.json` |
 | `branch` | `master` | Branch on the storage repo where signatures are committed. Must not be branch-protected. | `main` |
 | `use-dco-flag` | `"false"` | Set to `"true"` to use DCO wording and detection regex instead of CLA. | `"true"` |
-| `allowlist` | `""` | Comma-separated usernames + wildcard patterns. Matched case-insensitively against the GitHub login. | `user1,user2,bot*` |
+| `allowlist` | `""` | Comma-separated usernames, wildcard patterns, `@org` (every org member), or `@org/team` (every team member incl. child teams). Case-insensitive. See [Users, bots, orgs, and teams in allowlist](#5-users-bots-orgs-and-teams-in-allowlist). | `'user1,bot*,@acme,@acme/security'` |
 | `exempt-repo-org-members` | `"false"` | When `"true"`, members of the repository's owning organization are auto-allowlisted. Requires `read:org` for private orgs. | `"true"` |
 | `remote-organization-name` | _(empty)_ | Store signatures in a different org's repo. Requires App auth or PAT to write cross-repo. | `my-org` |
 | `remote-repository-name` | _(empty)_ | Pair with `remote-organization-name`. | `cla-signatures` |

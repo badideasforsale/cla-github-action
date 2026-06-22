@@ -12,7 +12,7 @@ inputs:
     description: "Branch on the storage repo where signatures are committed. Must not be branch-protected."
     default: "master"
   allowlist:
-    description: "Comma-separated users + wildcard patterns that don't have to sign the CLA/DCO document. Case-insensitive."
+    description: "Comma-separated users, wildcard patterns, @org entries (every org member auto-allowlisted), or @org/team entries (every team member). Case-insensitive. @org/team always needs read:org scope; private @org likewise."
     default: ""
   exempt-repo-org-members:
     description: "if 'true', members of the organization that owns this repository are auto-allowlisted (no signature required). Public-org members are visible to the default GITHUB_TOKEN; private members require a PAT or App token with read:org scope."
