@@ -50,10 +50,10 @@ async function runMain() {
 }
 
 describe('main.ts dispatch', () => {
-  it('locks the PR on the closed event when lock-after-merge is true', async () => {
+  it('locks the PR on the closed+merged event when lock-after-merge is true', async () => {
     Object.assign(mockContext, {
       eventName: 'pull_request_target',
-      payload: { action: 'closed' }
+      payload: { action: 'closed', pull_request: { merged: true } }
     })
     mockLockInputFlag.mockReturnValue('true')
 
@@ -61,6 +61,32 @@ describe('main.ts dispatch', () => {
 
     expect(mockLockPullRequest).toHaveBeenCalled()
     expect(mockSetupClaCheck).not.toHaveBeenCalled()
+  })
+
+  describe('SF-20: do not lock on close-without-merge', () => {
+    it('does NOT lock when the PR is closed without being merged', async () => {
+      Object.assign(mockContext, {
+        eventName: 'pull_request_target',
+        payload: { action: 'closed', pull_request: { merged: false } }
+      })
+      mockLockInputFlag.mockReturnValue('true')
+
+      await runMain()
+
+      expect(mockLockPullRequest).not.toHaveBeenCalled()
+    })
+
+    it('does NOT lock when pull_request is absent from payload entirely', async () => {
+      Object.assign(mockContext, {
+        eventName: 'pull_request_target',
+        payload: { action: 'closed' }
+      })
+      mockLockInputFlag.mockReturnValue('true')
+
+      await runMain()
+
+      expect(mockLockPullRequest).not.toHaveBeenCalled()
+    })
   })
 
   describe('BUG-CLOSED-PR-COMMENT (closed #72)', () => {

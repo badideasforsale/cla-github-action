@@ -53,6 +53,14 @@ The README example workflow has always used `signatures/version1/cla.json`; the 
 
 **Do not skip this step.** Without one of the above actions, the action will treat your PR as a first-time install, attempt to create a new file at `signatures/version1/cla.json`, and orphan your existing `./signatures/cla.json`.
 
+### 1c. `lock-pullrequest-aftermerge` now actually requires merge
+
+Pre-v3 the input was named `lock-pullrequest-aftermerge` but the code triggered the lock on **any** `closed` action — including a contributor closing their own unmerged PR. A contributor doing that under v2 would find themselves unable to reopen or comment on their own PR.
+
+v3 matches the behavior to the input name: the lock fires only when the PR was actually merged (`payload.pull_request.merged === true`). Closed-without-merge PRs are left unlocked, so the contributor can reopen and iterate. No yaml change needed.
+
+If your team specifically relied on the v2 lock-on-any-close behavior, file an issue describing the use case — we don't know of any but want to hear about it before re-adding it under a different input name.
+
 ---
 
 ## Step 2 — Verify your workflow still works as-is (after Step 1)

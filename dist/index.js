@@ -26116,7 +26116,7 @@ async function lockPullRequest() {
     );
     info(`successfully locked the pull request ${pullRequestNo}`);
   } catch (e) {
-    error(`failed when locking the pull request `);
+    error(`failed when locking the pull request: ${e?.message || e}`);
   }
 }
 
@@ -26124,7 +26124,7 @@ async function lockPullRequest() {
 async function run() {
   try {
     info(`CLA Assistant GitHub Action bot has started the process`);
-    if (context2.payload.action === "closed" && lockPullRequestAfterMerge() == "true") {
+    if (context2.payload.action === "closed" && context2.payload.pull_request?.merged === true && lockPullRequestAfterMerge() == "true") {
       return lockPullRequest();
     }
     if (context2.eventName === "issue_comment" && context2.payload?.issue?.state === "closed") {

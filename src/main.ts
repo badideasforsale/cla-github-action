@@ -11,9 +11,16 @@ export async function run() {
 
     /*
      * using a `string` true or false purposely as github action input cannot have a boolean value
+     *
+     * SF-20: gate on payload.pull_request.merged so close-without-merge does
+     * not lock the PR. The input is named `lock-pullrequest-aftermerge` —
+     * matching the name to the behavior. A contributor closing their own
+     * unmerged PR (e.g. to reopen with different commits) should not be
+     * auto-locked out.
      */
     if (
       context.payload.action === 'closed' &&
+      context.payload.pull_request?.merged === true &&
       input.lockPullRequestAfterMerge() == 'true'
     ) {
       return lockPullRequest()
