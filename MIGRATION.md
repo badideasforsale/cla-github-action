@@ -92,6 +92,18 @@ These changes happen automatically and are mostly bug fixes:
 | Email-reply sign phrases are now detected | Contributors replying to GitHub email notifications | [upstream #19](https://github.com/contributor-assistant/github-action/issues/19) |
 | `core.info` logs every unsigned committer's name + email | The action's run output | [upstream #92](https://github.com/contributor-assistant/github-action/issues/92) |
 
+### Security fixes you'll inherit
+
+v3.0.0 ships with five security fixes for issues in upstream v2.x. Most are not exploitable without specific consumer-side context (e.g. lots of commits on a single PR, a contributor crafting their git author header), but the SEC-DEDUP-NAME-COLLISION + SEC-PAGINATE-COMMITS pair turn into CLA-gate bypasses if the right conditions are met. Full per-finding writeups are in [`CHANGELOG.md`](./CHANGELOG.md) § Security; one-line summary here so a security reviewer scanning the upgrade can see the surface:
+
+| Finding | Severity | What was broken |
+|---|---|---|
+| SEC-COMMENT-AUTHOR-FILTER | Medium | A PR opener could DoS the action by spoofing the bot's marker/brand string in a PR comment, causing the bot to fail updateComment and setFailed permanently. |
+| SEC-PAGINATE-COMMITS | Medium | The GraphQL committers query stopped after the first 100 commits, letting an attacker bypass the CLA check by padding past position 100. |
+| SEC-DEDUP-NAME-COLLISION | Medium | Dedup-by-name conflated resolved GitHub logins with raw git author names — `git commit --author "<signed-login> <attacker@…>"` silently dropped unsigned commits from the check. |
+| SEC-ESCAPE-AUTHOR-NAME | Low–Medium | Contributor-controlled git author names rendered raw into the bot's PR comment Markdown; tracking-pixel / phishing-link injection. |
+| SEC-STRIP-NEWLINES | Low | `\n` in a git author header could spawn workflow-command annotations (`::warning::`, `::error::`, `::add-mask::`) on the next runner-parsed log line. |
+
 ## Step 4 — One input was removed
 
 `signed-empty-commit-message` was declared in v2's `action.yml` but never read by any code. If you happened to set it in your workflow, **delete the line**. Behavior is unchanged.

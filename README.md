@@ -21,6 +21,9 @@ Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (D
 
 ## Configure Contributor License Agreement within two minutes
 
+> [!IMPORTANT]
+> **Before step 1 — workflow permissions.** Go to **Settings → Actions → General → Workflow permissions** on your repo (or org settings) and confirm "Read and write permissions" is selected. If this is set to "Read repository contents and packages permissions" (the GitHub default for new orgs), the action's `permissions:` block alone cannot grant write — every comment-post + signature-commit will fail with an opaque HTTP 403, and the action will not surface the cause. This single setting is the most common first-install failure mode.
+
 #### 1. Add the following Workflow File to your repository in this path`.github/workflows/cla.yml`
 
 ```yml
@@ -193,6 +196,18 @@ Human-tied secret. **Discouraged** for new setups — use 6a instead — but sti
 Create a [Personal Access Token](https://docs.github.com/en/github/authenticating-to-github/creating-a-personal-access-token) with `repo` scope (and `read:org` if using `exempt-repo-org-members`), then add it as `PERSONAL_ACCESS_TOKEN` in your repo's secrets.
 
 Trade-offs: PAT is tied to the human who creates it — if they leave, the action breaks silently. Tokens are long-lived. Commits show under that human's identity, which conflates bot activity with real user activity. App auth (6a) solves all three.
+
+#### 7. Verify the install
+
+After the workflow file lands on your default branch (and you've checked the workflow-permissions setting from the IMPORTANT callout above), test the end-to-end path before relying on it:
+
+1. From a second GitHub account (or a sock-puppet account), open a PR adding any small file.
+2. Watch the workflow run. **Expected:** the action posts a "please sign" PR comment listing your unsigned committer in the ✗ list, the status check shows red, and the signatures file is auto-created on your `branch:` if it didn't exist.
+3. From the unsigned account, comment exactly: `I have read the CLA Document and I hereby sign the CLA`. (Use `DCO` instead of `CLA` if you've set `use-dco-flag: 'true'`.)
+4. **Expected:** the bot edits its existing comment to mark you ✓, the signatures file gets a new entry (visible as a commit on the `branch:`), and the status check flips green.
+5. Merge the PR. **Expected:** the conversation locks (you can't post a new comment), preventing post-merge signature edits.
+
+If any step doesn't match the expected behavior, check the workflow run logs and the troubleshooting section before assuming a bug.
 
 ### Environmental Variables:
 
@@ -414,6 +429,28 @@ If contributors post the sign comment and nothing happens, three usual suspects:
 ### Action runs but the "X out of Y signed" comment renders broken
 
 This was a real bug (inverted Markdown link, `(name)[url]` instead of `[name](url)`) fixed in v3. If you're on v2.6.1 or earlier, upgrade.
+
+### The `recheck` PR comment — manually re-trigger the action
+
+If the bot hasn't updated its comment (e.g. you signed but the comment still says ✗), post `recheck` as a PR comment. The example workflow's `if:` block detects this exact string and re-runs the action against the current PR state without needing a new commit or sync.
+
+Useful when:
+- A transient API failure left the bot's last update stale.
+- You added or removed an allowlist entry on the workflow file (on `main`) and want the open PRs to pick it up without pushing new commits.
+- A test repo's signatures file was hand-edited and you want the action to re-check.
+
+`recheck` is just a magic string the example workflow watches for in its `if:` — change it to whatever you like by editing the workflow yaml.
+
+### App-auth — confirming it's actually being used (and debugging when it isn't)
+
+The action falls back to `GITHUB_TOKEN` on any App-auth failure (App not installed on this repo, invalid private key, network blip) and emits a `core.warning`. To check what's happening:
+
+- **In the workflow run logs**, look for lines like:
+  - `GitHub App 123456: discovered installation id 789 for owner/repo` → App auth working.
+  - `GitHub App 123456 is not installed on owner/repo` → install the App at `https://github.com/apps/<slug>/installations/new`.
+  - `GITHUB_APP_PRIVATE_KEY env var is required when not using GitHub App auth` → secret name mismatch in the workflow yaml, or the secret isn't set.
+- **In the signatures-file commit history**, the committer identity tells you which auth path won. App-auth commits show as `<your-app-slug>[bot] <…@users.noreply.github.com>`. `GITHUB_TOKEN` commits show as `github-actions[bot]`. PAT commits show under the PAT owner's identity.
+- **`gh api /app` from the runner** (if you can SSH or add a debug step) returns App metadata only when authenticated as the App; under `GITHUB_TOKEN` it returns 401.
 
 ### Workflow name containing `-->` breaks multi-job comment isolation
 

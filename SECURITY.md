@@ -31,7 +31,12 @@ This project takes the following hygiene steps; if you find them lacking, that's
 - Dependabot opens weekly PRs for npm and GitHub Actions updates (`.github/dependabot.yml`).
 - CodeQL JavaScript/TypeScript analysis runs on every push and PR to `main`, plus weekly on schedule.
 - `actions/dependency-review-action` runs on PRs and fails on additions with known vulnerabilities or disallowed licenses.
-- Releases will publish build provenance attestations via `actions/attest-build-provenance` so consumers can verify `dist/index.js` was built from this source tree at the tagged commit (`gh attestation verify`).
+- [OpenSSF Scorecard](https://securityscorecards.dev) runs weekly via `.github/workflows/scorecard.yml`, publishes results, and uploads SARIF to the repo's code-scanning view.
+- Releases publish build provenance attestations via `actions/attest-build-provenance` (starting v3.0.0) so consumers can verify `dist/index.js` was built from this source tree at the tagged commit:
+  ```sh
+  gh attestation verify dist/index.js --owner badideasforsale
+  ```
+- v3.0.0 shipped with a pre-release security audit (5 findings, all fixed) — see [`CHANGELOG.md`](./CHANGELOG.md) § Security for the findings, attack scenarios, and remediations.
 
 ## Acknowledgements
 
