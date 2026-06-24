@@ -230,6 +230,128 @@ Inputs without a default are required. `action.yml` is the source of truth; this
 | `github-app-id` | _(empty — uses GITHUB_TOKEN/PAT)_ | Numeric GitHub App ID. Set with `GITHUB_APP_PRIVATE_KEY` env var to authenticate as the App. See §6a. | `123456` |
 | `github-app-installation-id` | _(empty — auto-discovers)_ | Pin the installation id explicitly to skip the auto-discovery API call (~200 ms). | `12345678` |
 
+## Examples
+
+The basic workflow above covers the common case. Below are three deployments that need extra inputs — keep them collapsed unless they apply to you.
+
+<details>
+<summary><strong>Cross-repo signature storage (PAT auth)</strong> — store all signatures in a different repo than the one the PR is opened against.</summary>
+
+Useful when many repos share a single CLA: keep one canonical signatures file in `<your-org>/cla-signatures` instead of duplicating across every project.
+
+You need a Personal Access Token with `repo` scope on the signatures repo; the default `GITHUB_TOKEN` cannot cross repo boundaries. Add it as a secret on the PR repo.
+
+```yml
+name: "CLA Assistant"
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: read     # we don't write to THIS repo — signatures live elsewhere
+  pull-requests: write
+  statuses: write
+
+jobs:
+  CLAAssistant:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'pull_request_target') || (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+    steps:
+      - name: "CLA Assistant"
+        if: |
+          github.event_name == 'pull_request_target' ||
+          github.event.comment.body == 'recheck' ||
+          contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')
+        uses: badideasforsale/cla-github-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PERSONAL_ACCESS_TOKEN: ${{ secrets.CLA_PAT }}
+        with:
+          path-to-document: 'https://github.com/your-org/cla-signatures/blob/main/CLA.md'
+          remote-organization-name: 'your-org'
+          remote-repository-name: 'cla-signatures'
+          path-to-signatures: 'signatures/version1/cla.json'
+          branch: 'main'
+```
+
+PAT scopes: `repo` (classic) or read+write on `contents` (fine-grained, scoped to the signatures repo only). See README troubleshooting if you hit a 500 error — that's typically the org-owned-PAT issue.
+
+</details>
+
+<details>
+<summary><strong>GitHub App authentication</strong> — replace the PAT (or augment <code>GITHUB_TOKEN</code>) with a bot identity that has cleaner audit trails and short-lived tokens.</summary>
+
+Setup (one-time, ~5 min):
+
+1. Create a GitHub App from the reference manifest at [`docs/cla-app-manifest.json`](./docs/cla-app-manifest.json). App names must be globally unique on GitHub — prefix with your org or project name (e.g. `acme-cla-bot`).
+2. Install the App on the repo(s) involved. For cross-repo storage, install on both the PR repo and the signatures repo.
+3. Save the App's private key (`.pem`) as a repo secret named `GH_APP_PRIVATE_KEY`. Note the numeric App ID from the App's settings page.
+
+```yml
+name: "CLA Assistant"
+on:
+  issue_comment:
+    types: [created]
+  pull_request_target:
+    types: [opened, closed, synchronize]
+
+permissions:
+  actions: write
+  contents: write
+  pull-requests: write
+  statuses: write
+
+jobs:
+  CLAAssistant:
+    runs-on: ubuntu-latest
+    if: (github.event_name == 'pull_request_target') || (github.event_name == 'issue_comment' && github.event.issue.pull_request)
+    steps:
+      - name: "CLA Assistant"
+        if: |
+          github.event_name == 'pull_request_target' ||
+          github.event.comment.body == 'recheck' ||
+          contains(github.event.comment.body, 'I have read the CLA Document and I hereby sign the CLA')
+        uses: badideasforsale/cla-github-action@v3
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+        with:
+          path-to-document: 'https://github.com/your-org/repo/blob/main/CLA.md'
+          path-to-signatures: 'signatures/version1/cla.json'
+          branch: 'main'
+          github-app-id: '123456'
+          # Optional: pin the installation id to skip ~200ms of auto-discovery per run
+          # github-app-installation-id: '78910'
+```
+
+The action mints an installation token from the App's private key on each run. On any App misconfig (wrong id, key not loaded, App not installed on this repo), the action emits a `core.warning` and **falls back to `GITHUB_TOKEN`** — your workflow doesn't fail closed on App-auth issues. Look for `Falling back to GITHUB_TOKEN` in the workflow run logs.
+
+</details>
+
+<details>
+<summary><strong>Org/team allowlist</strong> — exempt every member of a GitHub org or team from having to sign individually.</summary>
+
+When a corporate CLA covers all engineers in an org, list the org once in `allowlist` instead of every member's login. Membership is resolved at runtime, so contributors who join later are picked up automatically.
+
+```yml
+        with:
+          path-to-document: 'https://github.com/your-org/repo/blob/main/CLA.md'
+          allowlist: 'dependabot[bot],*[bot],@acme-corp,@partner-org/security-team'
+```
+
+- **`@acme-corp`** — every member of the `acme-corp` org is auto-allowlisted.
+- **`@partner-org/security-team`** — every member of the `security-team` team in `partner-org`, including child-team members (uses GraphQL `membership: ALL`).
+- Mix freely with plain logins and wildcards in the same comma-separated string.
+
+**Auth requirements:** public orgs are visible to the default `GITHUB_TOKEN` — no setup needed. Private orgs and **any** team lookup need a token with `read:org` scope — use a PAT (`PERSONAL_ACCESS_TOKEN` env var with `read:org`) or a GitHub App installed in the target org. If the lookup fails for any one entry, the action logs a warning and falls through to the regular CLA check for that entry's would-be members; the gate is never blocked by an allowlist-expansion failure.
+
+See [`README.md` § "Users, bots, orgs, and teams in allowlist"](#5-users-bots-orgs-and-teams-in-allowlist) for full syntax details.
+
+</details>
+
 ## DCO mode
 
 Setting `use-dco-flag: 'true'` switches the bot's wording, the sign-phrase regex, and the document-link label from CLA to DCO equivalents. Storage shape, authentication, allowlist, marker-based multi-job lookup, and every other input behave identically — only the user-facing text and the matching pattern change.
