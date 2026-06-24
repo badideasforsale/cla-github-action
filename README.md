@@ -415,6 +415,16 @@ If contributors post the sign comment and nothing happens, three usual suspects:
 
 This was a real bug (inverted Markdown link, `(name)[url]` instead of `[name](url)`) fixed in v3. If you're on v2.6.1 or earlier, upgrade.
 
+### Workflow name containing `-->` breaks multi-job comment isolation
+
+The action appends a hidden HTML marker `<!-- cla-lite-bot:<kind>:<workflow>:<job> -->` to every bot comment so multiple CLA/DCO jobs in the same workflow file find their own comment instead of stomping each other. The `<workflow>` and `<job>` slugs come straight from the runner's `GITHUB_WORKFLOW` / `GITHUB_JOB` env vars, which mirror the consumer-chosen `name:` field in the workflow yaml.
+
+**If your workflow `name:` contains the literal sequence `-->`** (e.g. `name: "Build & Test --> Sign CLA"`), it prematurely closes the marker comment in the HTML. The bot's next run won't find its existing comment and will fall back to the legacy substring detector — which works for single-job setups but degrades multi-job safety. Two CLA jobs in the same workflow file would start stomping each other's comments again.
+
+Workaround: drop `-->` from the workflow `name:` — `Build &amp; Test then Sign` works.
+
+If this affects you (the workflow name change isn't acceptable for organizational reasons, or you specifically need multi-job marker isolation), [open an issue](https://github.com/badideasforsale/cla-github-action/issues/new) or +1 an existing one. The action will sanitize the slug in a future patch if there's real demand.
+
 ## Contributors
 
 <!-- readme: collaborators,contributors -start -->
