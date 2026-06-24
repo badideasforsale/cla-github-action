@@ -25,6 +25,14 @@ jest.mock('@actions/github', () => ({
     payload: { repository: { id: 999 } }
   }
 }))
+// SF-2: getComment uses `octokit.paginate(listComments, ...)` to handle PRs
+// with >30 comments. Mock returns the underlying mockListComments's `data`
+// directly so existing fixtures keep working unchanged.
+const mockPaginate = jest.fn(async (method: any, params: any) => {
+  const res = await method(params)
+  return res?.data ?? []
+})
+
 jest.mock('../src/octokit', () => ({
   getOctokit: jest.fn(async () => ({
     rest: {
@@ -33,7 +41,8 @@ jest.mock('../src/octokit', () => ({
         createComment: mockCreateComment,
         updateComment: mockUpdateComment
       }
-    }
+    },
+    paginate: mockPaginate
   })),
   getExpectedCommenterLogin: jest.fn(async () => 'github-actions[bot]')
 }))
@@ -180,6 +189,37 @@ describe('getComment (via prCommentSetup) — BUG-COMMENT-MARKER (#153)', () => 
         expect(mockUpdateComment).toHaveBeenCalledWith(
           expect.objectContaining({ comment_id: 2 })
         )
+      })
+  })
+})
+
+describe('SF-2: getComment paginates past the default 30-per-page', () => {
+  it('finds the bot comment when it sits past the first 30 comments', async () => {
+    // The bot's update-in-place flow depends on finding its existing
+    // comment. On a busy PR with 40+ reviewer comments, pre-fix only
+    // page 1 was scanned and the bot would post a fresh comment each
+    // run — visible as "duplicate bot comments" to maintainers.
+    const lateBotComment = {
+      id: 999,
+      user: botUser,
+      body: '<sub>Posted by the **Self-Hosted CLA Assistant bot**.</sub>\n<!-- cla-lite-bot:cla:CLA-frontend:sign-check -->'
+    }
+    const allComments = [
+      ...Array.from({ length: 35 }, (_, i) => ({
+        id: 100 + i,
+        user: { login: `reviewer-${i}`, type: 'User' },
+        body: `nit on line ${i}`
+      })),
+      lateBotComment
+    ]
+    mockPaginate.mockResolvedValueOnce(allComments as any)
+
+    return prCommentSetup(map({ notSigned: [{ name: 'a', id: 1 }] }), [{ name: 'a', id: 1 }])
+      .then(() => {
+        expect(mockUpdateComment).toHaveBeenCalledWith(
+          expect.objectContaining({ comment_id: 999 })
+        )
+        expect(mockCreateComment).not.toHaveBeenCalled()
       })
   })
 })

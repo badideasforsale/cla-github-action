@@ -13,6 +13,15 @@ const mockListComments = jest.fn()
 const mockGetUseDcoFlag = jest.fn(() => 'false')
 const mockGetCustomPrSignComment = jest.fn(() => '')
 
+// SF-2: the code now uses `octokit.paginate(octokit.rest.issues.listComments, ...)`.
+// The paginate function in the real SDK returns the merged array directly
+// (not wrapped in `{data: ...}`). Mock returns `mockListComments`'s `data`
+// field so tests can keep authoring `{data: [...]}` fixtures unchanged.
+const mockPaginate = jest.fn(async (method: any, params: any) => {
+  const res = await method(params)
+  return res?.data ?? []
+})
+
 jest.mock('@actions/core')
 jest.mock('@actions/github', () => ({
   context: {
@@ -23,7 +32,8 @@ jest.mock('@actions/github', () => ({
 }))
 jest.mock('../src/octokit', () => ({
   getOctokit: jest.fn(async () => ({
-    rest: { issues: { listComments: mockListComments } }
+    rest: { issues: { listComments: mockListComments } },
+    paginate: mockPaginate
   }))
 }))
 jest.mock('../src/shared/getInputs', () => ({
@@ -203,6 +213,31 @@ describe('signatureWithPRComment', () => {
         }
       ]
     })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])
+  })
+})
+
+describe('SF-2: comment lookup paginates past the default 30-per-page', () => {
+  it('finds a sign comment that appears past the first page of comments', async () => {
+    // Simulate a long PR: 50 unrelated comments before the sign comment.
+    // The mockPaginate at the top of this file unwraps `.data`, but for
+    // this test we override it to return a flat 50+ element array
+    // directly, mirroring what octokit.paginate would do across pages.
+    const longCommentList = Array.from({ length: 50 }, (_, i) => ({
+      id: 1000 + i,
+      user: { login: `reviewer-${i}`, id: 9000 + i },
+      body: `nit on line ${i}`,
+      created_at: '2024-01-01T00:00:00Z'
+    }))
+    longCommentList.push({
+      id: 1099,
+      user: { login: 'alice', id: 1 },
+      body: 'I have read the CLA Document and I hereby sign the CLA' as any,
+      created_at: '2024-01-01T01:00:00Z'
+    })
+    mockPaginate.mockResolvedValueOnce(longCommentList as any)
 
     const result = await signatureWithPRComment(committerMap as any, committers)
     expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])

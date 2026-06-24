@@ -25691,14 +25691,15 @@ function isRemoteRepoOrOrgConfigured() {
 async function signatureWithPRComment(committerMap, committers) {
   let repoId = context2.payload.repository.id;
   const octokit = await getOctokit2();
-  let prResponse = await octokit.rest.issues.listComments({
+  const allComments = await octokit.paginate(octokit.rest.issues.listComments, {
     owner: context2.repo.owner,
     repo: context2.repo.repo,
-    issue_number: getPullRequestNumber()
+    issue_number: getPullRequestNumber(),
+    per_page: 100
   });
   let listOfPRComments = [];
   let filteredListOfPRComments = [];
-  prResponse?.data.forEach((prComment) => {
+  allComments.forEach((prComment) => {
     if (!prComment.user) {
       return;
     }
@@ -25866,17 +25867,22 @@ async function updateComment(signed, committerMap, claBotComment) {
 async function getComment() {
   try {
     const octokit = await getOctokit2();
-    const response = await octokit.rest.issues.listComments({ owner: context2.repo.owner, repo: context2.repo.repo, issue_number: getPullRequestNumber() });
+    const allComments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner: context2.repo.owner,
+      repo: context2.repo.repo,
+      issue_number: getPullRequestNumber(),
+      per_page: 100
+    });
     const expectedLogin = await getExpectedCommenterLogin();
     const isOurs = (comment) => expectedLogin === null || comment.user?.login === expectedLogin;
     const marker = commentMarker();
-    const markerMatch = response.data.find(
+    const markerMatch = allComments.find(
       (comment) => isOurs(comment) && comment.body?.includes(marker)
     );
     if (markerMatch) return markerMatch;
     const isDco = getUseDcoFlag() === "true";
     const legacy = isDco ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m;
-    return response.data.find((comment) => isOurs(comment) && comment.body?.match(legacy));
+    return allComments.find((comment) => isOurs(comment) && comment.body?.match(legacy));
   } catch (error2) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error2.message}`);
   }

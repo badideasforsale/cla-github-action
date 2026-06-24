@@ -10,15 +10,21 @@ export default async function signatureWithPRComment(committerMap: CommitterMap,
 
     let repoId = context.payload.repository!.id
     const octokit = await getOctokit()
-    let prResponse = await octokit.rest.issues.listComments({
+    // SF-2: paginate the full comment list. Pre-fix the action called
+    // `listComments` once (default 30 per page), so on long-running PRs the
+    // sign comment posted past comment-30 was never detected and the
+    // contributor's repeated "I signed, the bot ignored me" reports were the
+    // visible symptom.
+    const allComments = await octokit.paginate(octokit.rest.issues.listComments, {
         owner: context.repo.owner,
         repo: context.repo.repo,
-        issue_number: getPullRequestNumber()
+        issue_number: getPullRequestNumber(),
+        per_page: 100
     })
     let listOfPRComments = [] as CommittersDetails[]
     let filteredListOfPRComments = [] as CommittersDetails[]
 
-    prResponse?.data.forEach((prComment) => {
+    allComments.forEach((prComment) => {
         if (!prComment.user) {
             // comment author was deleted; can't attribute a signature to a ghost
             return

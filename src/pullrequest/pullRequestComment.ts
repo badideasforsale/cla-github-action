@@ -61,7 +61,15 @@ async function updateComment(signed: boolean, committerMap: CommitterMap, claBot
 async function getComment() {
   try {
     const octokit = await getOctokit()
-    const response = await octokit.rest.issues.listComments({ owner: context.repo.owner, repo: context.repo.repo, issue_number: getPullRequestNumber() })
+    // SF-2: paginate so we find the bot's comment on PRs with >30 comments.
+    // Pre-fix the action would skip its own existing comment past page 1 and
+    // post a duplicate each run.
+    const allComments = await octokit.paginate(octokit.rest.issues.listComments, {
+      owner: context.repo.owner,
+      repo: context.repo.repo,
+      issue_number: getPullRequestNumber(),
+      per_page: 100
+    })
 
     // SEC-COMMENT-AUTHOR-FILTER: only consider comments authored by THIS
     // action's bot identity. Without this filter, any PR opener could post a
@@ -79,7 +87,7 @@ async function getComment() {
     // substring match for comments posted before markers existed; on the
     // next update those comments will be stamped with a marker.
     const marker = commentMarker()
-    const markerMatch = response.data.find(comment =>
+    const markerMatch = allComments.find(comment =>
       isOurs(comment) && comment.body?.includes(marker)
     )
     if (markerMatch) return markerMatch
@@ -92,7 +100,7 @@ async function getComment() {
     const legacy = isDco
       ? /.*(?:Self-Hosted DCO Assistant|DCO Assistant Lite) bot.*/m
       : /.*(?:Self-Hosted CLA Assistant|CLA Assistant Lite) bot.*/m
-    return response.data.find(comment => isOurs(comment) && comment.body?.match(legacy))
+    return allComments.find(comment => isOurs(comment) && comment.body?.match(legacy))
   } catch (error) {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error.message}`)
   }
