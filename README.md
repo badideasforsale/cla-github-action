@@ -8,7 +8,7 @@ Handle Contributor License Agreement (CLA) or Developer Certificate of Origin (D
 > Consumers on `contributor-assistant/github-action@v2.x` can switch the tag to this fork's `@v3` — see [`MIGRATION.md`](./MIGRATION.md) for the upgrade walkthrough.
 
 > [!TIP]
-> **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Bot wording, the sign phrase, and the default commit messages all auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA". **Before turning DCO mode on, read [DCO mode caveats](#dco-mode) below — it has important limitations.**
+> **Using DCO instead of CLA?** Set `use-dco-flag: 'true'`. Bot wording and the sign-phrase regex auto-flip to DCO equivalents. The signed-comment regex tolerates "I have read the DCO Document and I hereby sign the DCO". For brevity the rest of this README uses CLA terminology; substitute "DCO" mentally where you see "CLA". **Note:** the default `signed-commit-message` and `create-file-commit-message` templates still contain the literal string "CLA" — override both inputs explicitly if you want "DCO" in your git history. **Before turning DCO mode on, read [DCO mode caveats](#dco-mode) below — it has important limitations.**
 
 ### Features
 1. decentralized data storage
@@ -308,7 +308,7 @@ Setup (one-time, ~5 min):
 
 1. Create a GitHub App from the reference manifest at [`docs/cla-app-manifest.json`](./docs/cla-app-manifest.json). App names must be globally unique on GitHub — prefix with your org or project name (e.g. `acme-cla-bot`).
 2. Install the App on the repo(s) involved. For cross-repo storage, install on both the PR repo and the signatures repo.
-3. Save the App's private key (`.pem`) as a repo secret named `GH_APP_PRIVATE_KEY`. Note the numeric App ID from the App's settings page.
+3. Save the App's private key (`.pem`) as a repo secret named `CLA_APP_PRIVATE_KEY`. Note the numeric App ID from the App's settings page.
 
 ```yml
 name: "CLA Assistant"
@@ -337,7 +337,7 @@ jobs:
         uses: badideasforsale/cla-github-action@v3
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          GITHUB_APP_PRIVATE_KEY: ${{ secrets.GH_APP_PRIVATE_KEY }}
+          GITHUB_APP_PRIVATE_KEY: ${{ secrets.CLA_APP_PRIVATE_KEY }}
         with:
           path-to-document: 'https://github.com/your-org/repo/blob/main/CLA.md'
           path-to-signatures: 'signatures/version1/cla.json'

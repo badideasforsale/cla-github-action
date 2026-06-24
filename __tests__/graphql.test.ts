@@ -305,6 +305,33 @@ describe('getCommitters — SEC-DEDUP-NAME-COLLISION', () => {
     expect(committers).toHaveLength(1)
   })
 
+  it('orphan commit gets a stable name sentinel so downstream toLowerCase does not crash', async () => {
+    // Bug-#1 from final review: extractUserFromCommit returns {} for a
+    // fully-orphan commit, so user.name would be undefined. Downstream
+    // call sites (checkAllowList.matchesAllowlist, orgExemption.has)
+    // call `.toLowerCase()` unconditionally. A stable sentinel routes
+    // the committer into the "unknown" bucket without crashing.
+    const orphan = {
+      node: { commit: { author: null, committer: null } },
+      cursor: 'c'
+    }
+    mockGraphql.mockResolvedValueOnce({
+      repository: {
+        pullRequest: {
+          commits: {
+            edges: [orphan],
+            pageInfo: { hasNextPage: false, endCursor: null }
+          }
+        }
+      }
+    })
+
+    const committers = await getCommitters()
+    expect(committers).toHaveLength(1)
+    expect(committers[0].name).toBe('<unknown-author>')
+    expect(committers[0].id).toBe('')
+  })
+
   it('SF-11: does not crash on an orphan commit with null author', async () => {
     // A rewritten / orphan commit can return null for `commit.author`.
     // Pre-fix `extractUserFromCommit` dereferenced `commit.author.user`

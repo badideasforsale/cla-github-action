@@ -34,31 +34,37 @@ export async function setupClaCheck() {
 
   logUnsignedCommitterDetails(committerMap)
 
-  try {
-    const reactedCommitters = (await prCommentSetup(
-      committerMap,
-      committers
-    )) as ReactedCommitterMap
+  const reactedCommitters = (await prCommentSetup(
+    committerMap,
+    committers
+  )) as ReactedCommitterMap
 
-    if (reactedCommitters?.newSigned.length) {
-      /* pushing the recently signed  contributors to the CLA Json File */
+  if (reactedCommitters?.newSigned.length) {
+    // Narrow catch boundary: a failure here is genuinely a JSON-file write
+    // problem (branch protection, network on `octokit.repos.createOrUpdate-
+    // FileContents`, etc). Pre-fix the outer catch wrapped this AND the PR
+    // comment posting above, so a comment-post 403 surfaced as "Could not
+    // update the JSON file" — misleading consumers chasing the wrong root
+    // cause.
+    try {
       await updateFile(sha, claFileContent, reactedCommitters)
-    }
-    if (
-      reactedCommitters?.allSignedFlag ||
-      committerMap?.notSigned === undefined ||
-      committerMap.notSigned.length === 0
-    ) {
-      core.info(`All contributors have signed the CLA 📝 ✅ `)
-      return reRunLastWorkFlowIfRequired()
-    } else {
+    } catch (err: any) {
       core.setFailed(
-        `Committers of Pull Request number ${getPullRequestNumber()} have to sign the CLA 📝`
+        `Could not update the JSON file: ${err?.message || err}. Make sure the branch where signatures are stored is NOT protected.`
       )
+      return
     }
-  } catch (err) {
+  }
+  if (
+    reactedCommitters?.allSignedFlag ||
+    committerMap?.notSigned === undefined ||
+    committerMap.notSigned.length === 0
+  ) {
+    core.info(`All contributors have signed the CLA 📝 ✅ `)
+    return reRunLastWorkFlowIfRequired()
+  } else {
     core.setFailed(
-      `Could not update the JSON file: ${err.message}. Make sure the branch where signatures are stored is NOT protected.`
+      `Committers of Pull Request number ${getPullRequestNumber()} have to sign the CLA 📝`
     )
   }
 }

@@ -25575,7 +25575,14 @@ async function getCommitters() {
         const committer = extractUserFromCommit(commit);
         const email = commit.author?.email || commit.committer?.email;
         const user = {
-          name: committer.login || committer.name,
+          // Fully-orphan commits (commit.author and commit.committer
+          // both null on the GraphQL response) flow through
+          // extractUserFromCommit's `|| {}` fallback. Downstream
+          // sites (checkAllowList, orgExemption) call
+          // `.name.toLowerCase()` unconditionally; an undefined
+          // name would crash. Use a stable sentinel so those
+          // committers cleanly land in the "unknown" bucket.
+          name: committer.login || committer.name || "<unknown-author>",
           id: committer.databaseId || "",
           email,
           pullRequestNo: getPullRequestNumber()
@@ -26003,25 +26010,26 @@ async function setupClaCheck() {
   );
   committerMap = prepareCommitterMap2(committers, claFileContent);
   logUnsignedCommitterDetails(committerMap);
-  try {
-    const reactedCommitters = await prCommentSetup(
-      committerMap,
-      committers
-    );
-    if (reactedCommitters?.newSigned.length) {
+  const reactedCommitters = await prCommentSetup(
+    committerMap,
+    committers
+  );
+  if (reactedCommitters?.newSigned.length) {
+    try {
       await updateFile(sha, claFileContent, reactedCommitters);
-    }
-    if (reactedCommitters?.allSignedFlag || committerMap?.notSigned === void 0 || committerMap.notSigned.length === 0) {
-      info(`All contributors have signed the CLA \u{1F4DD} \u2705 `);
-      return reRunLastWorkFlowIfRequired();
-    } else {
+    } catch (err) {
       setFailed(
-        `Committers of Pull Request number ${getPullRequestNumber()} have to sign the CLA \u{1F4DD}`
+        `Could not update the JSON file: ${err?.message || err}. Make sure the branch where signatures are stored is NOT protected.`
       );
+      return;
     }
-  } catch (err) {
+  }
+  if (reactedCommitters?.allSignedFlag || committerMap?.notSigned === void 0 || committerMap.notSigned.length === 0) {
+    info(`All contributors have signed the CLA \u{1F4DD} \u2705 `);
+    return reRunLastWorkFlowIfRequired();
+  } else {
     setFailed(
-      `Could not update the JSON file: ${err.message}. Make sure the branch where signatures are stored is NOT protected.`
+      `Committers of Pull Request number ${getPullRequestNumber()} have to sign the CLA \u{1F4DD}`
     );
   }
 }

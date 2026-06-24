@@ -24,7 +24,8 @@ This is a GitHub Action implemented in TypeScript. The bundled `dist/index.js` i
 
 `src/main.ts` → `run()` dispatches on the webhook payload:
 
-- `payload.action === 'closed'` **and** `lock-pullrequest-aftermerge` input is `'true'` → `lockPullRequest()` locks the PR conversation so signature comments cannot be edited after merge.
+- `payload.action === 'closed'` **and** `payload.pull_request?.merged === true` **and** `lock-pullrequest-aftermerge` input is `'true'` → `lockPullRequest()` locks the PR conversation so signature comments cannot be edited after merge. The `merged === true` gate (SF-20) prevents lock-on-close-without-merge — a contributor closing their own unmerged PR is left able to reopen and iterate.
+- `eventName === 'issue_comment'` **and** `payload.issue.state === 'closed'` → short-circuit. Avoids the noisy failures the action used to produce when run against comments on already-closed PRs.
 - Otherwise → `setupClaCheck()` runs the signature reconciliation flow.
 
 All action inputs are read via `core.getInput(...)` wrappers in `src/shared/getInputs.ts`. Booleans are passed as string `'true'`/`'false'` because GitHub Actions inputs cannot be typed booleans — code does string comparisons against these literals (see `main.ts`, `signatureComment.ts`).

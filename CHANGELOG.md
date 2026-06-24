@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 _Nothing yet — open the next section for ideas in flight._
 
-## [3.0.0] — 2026-06-17
+## [3.0.0] — 2026-06-24
 
 First release of this maintained fork.
 
@@ -67,7 +67,7 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 
 - **Action runtime:** `node20` → `node24` (matches `actions/checkout@v6`, `actions/setup-node@v6`).
 - **Bundler:** `@vercel/ncc` → `esbuild`. esbuild handles ESM-deps → CJS-bundle interop cleanly, which was the wall we hit pinning to last-CJS majors of `@actions/core` and `@actions/github`. Side benefits: bundle is ~25% smaller (1.27 MB → 982 KB) and the build is ~20× faster (~525 ms → ~25 ms). The TS source stays CJS; only the bundler boundary changed.
-- **Dependencies:** `@actions/core` ^1.10 → **^3.0** (ESM-only — unblocked by esbuild); `@actions/github` ^4.0 → **^9.1** (ESM-only). Now on the latest majors across the board. The "ESM migration deferred" item from earlier in this Unreleased section is no longer outstanding — for a bundled action, esbuild-with-CJS-output is the steady state.
+- **Dependencies:** `@actions/core` ^1.10 → **^3.0** (ESM-only — unblocked by esbuild); `@actions/github` ^4.0 → **^9.1** (ESM-only). Now on the latest majors across the board. (Earlier draft notes about deferring the ESM migration are now resolved — for a bundled action, esbuild-with-CJS-output is the steady state.)
 - **Toolchain:** TypeScript ^4.9 → ^5.9; `ts-jest` ^29.0 → ^29.4; `@types/node` ^18 → ^22; explicit `jest` ^29.7 + `@types/jest`.
 - **CI workflows:** rewritten. Single Node 24.x build matrix. All third-party actions SHA-pinned with version-tag comments. Least-privilege `permissions:` blocks on every job. `pull_request_target` and overbroad `branches: '*'` triggers removed.
 - **CodeQL:** language switched to `javascript-typescript`; explicit `security-events: write` permission; autobuild step dropped (unnecessary for JS/TS).
@@ -79,10 +79,6 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - `npm run validate-actions` and a CI step using `mpalmer/action-validator@v0.9.0` — validates `action.yml` and workflow YAML against the schemas GitHub Actions actually accepts. Requires `action-validator` v0.9.0 locally (earlier versions reject `node24`).
 - New `SECURITY.md` documenting GitHub private vulnerability reporting, scope, and supply-chain hygiene.
 - `engines.node: ">=24"` and explicit `repository.url` in `package.json`.
-
-### Operational
-
-- **Workflows are temporarily disabled** (`gh workflow disable`) to suppress noisy failed-build notifications during the v3 WIP. They will be re-enabled before v3 ships (see plan M7.8).
 
 ### Removed
 
@@ -100,7 +96,7 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - **Markdown links in the bot comment** ([#67](https://github.com/contributor-assistant/github-action/issues/67), [PR #171](https://github.com/contributor-assistant/github-action/pull/171)). Signed-committer entries used `(name)[url]` (invalid Markdown) instead of `[name](url)`. Affected both CLA and DCO branches.
 - **Bot no longer @-mentions random GitHub users** ([#177](https://github.com/contributor-assistant/github-action/issues/177), dup [#91](https://github.com/contributor-assistant/github-action/issues/91)). When a commit author couldn't be resolved to a GitHub user, the comment rendered `@<raw-git-name>` and could ping an unrelated GitHub login that happened to match. The notSigned list now omits the `@`-prefix for committers without a resolved id; they're still listed by name and surfaced in the "seems not to be a GitHub user" line.
 - **Duplicate signature entries** ([#179](https://github.com/contributor-assistant/github-action/issues/179)). `persistence.updateFile` now dedups `newSigned` against existing `signedContributors[].id` before push.
-- **Malformed signatures file no longer throws.** `setupClaCheck.prepareCommiterMap` and `persistence.updateFile` defensively default `signedContributors` to `[]` when the file is `{}` or otherwise missing the key.
+- **Malformed signatures file no longer throws.** `setupClaCheck.prepareCommitterMap` and `persistence.updateFile` defensively default `signedContributors` to `[]` when the file is `{}` or otherwise missing the key.
 - **Clearer protected-branch error** ([#131](https://github.com/contributor-assistant/github-action/issues/131), [PR #133](https://github.com/contributor-assistant/github-action/pull/133)). The "Could not update the JSON file" error now points contributors at branch-protection settings, matching the message already used by the create-file path.
 - **Skip noisy failures on comments against closed PRs** (closed [#72](https://github.com/contributor-assistant/github-action/issues/72)). `main.ts` short-circuits when the event is `issue_comment` and the parent PR is already closed.
 - **Soft-fail when the post-sign workflow re-run can't find itself** ([#135](https://github.com/contributor-assistant/github-action/issues/135)). `getSelfWorkflowId` now returns `null` + emits `core.warning` instead of throwing; the sign flow stays green.

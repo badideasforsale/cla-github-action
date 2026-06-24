@@ -93,7 +93,14 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
                 // "not a GitHub user" UX have something to identify the person by.
                 const email = commit.author?.email || commit.committer?.email
                 const user = {
-                    name: committer.login || committer.name,
+                    // Fully-orphan commits (commit.author and commit.committer
+                    // both null on the GraphQL response) flow through
+                    // extractUserFromCommit's `|| {}` fallback. Downstream
+                    // sites (checkAllowList, orgExemption) call
+                    // `.name.toLowerCase()` unconditionally; an undefined
+                    // name would crash. Use a stable sentinel so those
+                    // committers cleanly land in the "unknown" bucket.
+                    name: committer.login || committer.name || '<unknown-author>',
                     id: committer.databaseId || '',
                     email,
                     pullRequestNo: getPullRequestNumber()
