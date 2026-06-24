@@ -14,7 +14,13 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
     try {
         const octokit = await getOctokit()
         const committers: CommittersDetails[] = []
-        const seenNames = new Set<string>()
+        // SEC-DEDUP-NAME-COLLISION: dedup key MUST distinguish resolved-by-id
+        // from unresolved-by-(name,email). Keying on `name` alone collapses
+        // both namespaces and lets an attacker forge a `git --author "<signed-
+        // login> <unclaimed-email>"` line that collides with a real signed
+        // contributor's login, causing their unsigned commit to be silently
+        // dropped from the CLA check.
+        const seenKeys = new Set<string>()
 
         const query = `
         query($owner:String! $name:String! $number:Int! $cursor:String){
@@ -84,8 +90,11 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
                     email,
                     pullRequestNo: getPullRequestNumber()
                 }
-                if (!seenNames.has(user.name)) {
-                    seenNames.add(user.name)
+                const dedupKey = user.id
+                    ? `id:${user.id}`
+                    : `raw:${user.name}:${user.email ?? ''}`
+                if (!seenKeys.has(dedupKey)) {
+                    seenKeys.add(dedupKey)
                     committers.push(user)
                 }
             }

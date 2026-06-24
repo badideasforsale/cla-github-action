@@ -25519,7 +25519,7 @@ async function getCommitters() {
   try {
     const octokit = await getOctokit2();
     const committers = [];
-    const seenNames = /* @__PURE__ */ new Set();
+    const seenKeys = /* @__PURE__ */ new Set();
     const query = `
         query($owner:String! $name:String! $number:Int! $cursor:String){
             repository(owner: $owner, name: $name) {
@@ -25578,8 +25578,9 @@ async function getCommitters() {
           email,
           pullRequestNo: getPullRequestNumber()
         };
-        if (!seenNames.has(user.name)) {
-          seenNames.add(user.name);
+        const dedupKey = user.id ? `id:${user.id}` : `raw:${user.name}:${user.email ?? ""}`;
+        if (!seenKeys.has(dedupKey)) {
+          seenKeys.add(dedupKey);
           committers.push(user);
         }
       }
