@@ -25738,9 +25738,9 @@ function isCommentSignedByUser(comment, commentAuthor) {
   }
   switch (getUseDcoFlag()) {
     case "true":
-      return comment.match(/^.*i \s*have \s*read \s*the \s*dco \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*dco.*$/m) !== null;
+      return comment.match(/^.*i\s+have\s+read\s+the\s+dco\s+document\s+and\s+i\s+hereby\s+sign\s+the\s+dco.*$/m) !== null;
     case "false":
-      return comment.match(/^.*i \s*have \s*read \s*the \s*cla \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*cla.*$/m) !== null;
+      return comment.match(/^.*i\s+have\s+read\s+the\s+cla\s+document\s+and\s+i\s+hereby\s+sign\s+the\s+cla.*$/m) !== null;
     default:
       return false;
   }

@@ -208,3 +208,75 @@ describe('signatureWithPRComment', () => {
     expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])
   })
 })
+
+describe('signature regex — SF-1 (whitespace flexibility)', () => {
+  it('matches a sign phrase with tab-separated words', async () => {
+    // Pre-SF-1 the regex was `i <literal-space>\s* have...` so tabs
+    // alone between words failed silently. Enterprise email gateways and
+    // some IMEs convert pasted spaces to tabs.
+    mockListComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 200,
+          user: { login: 'alice', id: 1 },
+          body: 'I\thave\tread\tthe\tCLA\tDocument\tand\tI\thereby\tsign\tthe\tCLA',
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+    })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])
+  })
+
+  it('matches a sign phrase with multiple-space separators', async () => {
+    mockListComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 201,
+          user: { login: 'alice', id: 1 },
+          body: 'I  have   read    the     CLA Document and I hereby sign the CLA',
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+    })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned.map((c: any) => c.name)).toEqual(['alice'])
+  })
+
+  it('matches the DCO phrase with tab separators too (parity)', async () => {
+    mockGetUseDcoFlag.mockReturnValue('true')
+    mockListComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 202,
+          user: { login: 'bob', id: 2 },
+          body: 'I\thave\tread\tthe\tDCO\tDocument\tand\tI\thereby\tsign\tthe\tDCO',
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+    })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned.map((c: any) => c.name)).toEqual(['bob'])
+  })
+
+  it('still rejects an unrelated comment (no false positive from \\s+)', async () => {
+    // Sanity check that the loosened whitespace doesn't make any
+    // sufficiently-spaced text match the regex.
+    mockListComments.mockResolvedValueOnce({
+      data: [
+        {
+          id: 203,
+          user: { login: 'alice', id: 1 },
+          body: 'I have a question about the CLA — what does the action do here?',
+          created_at: '2024-01-01T00:00:00Z'
+        }
+      ]
+    })
+
+    const result = await signatureWithPRComment(committerMap as any, committers)
+    expect(result.newSigned).toEqual([])
+  })
+})

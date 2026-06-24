@@ -70,12 +70,18 @@ function isCommentSignedByUser(comment: string, commentAuthor: string): boolean 
     // BUG-EMAIL-REPLY-REGEX (#19): the `m` flag makes `^` and `$` match
     // line boundaries, so a comment reply via email (sign phrase on the
     // first line, quoted previous message after) still matches.
+    //
+    // SF-1: `\s+` between words (rather than the pre-v3 `<literal-space>\s*`
+    // pattern) so any whitespace separator works — tabs, multiple spaces,
+    // non-breaking spaces, etc. The prior regex silently rejected anything
+    // that didn't have a leading ASCII space before each `\s*`.
+    //
     // using a `string` true or false purposely as github action input cannot have a boolean value
     switch (getUseDcoFlag()) {
         case 'true':
-            return comment.match(/^.*i \s*have \s*read \s*the \s*dco \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*dco.*$/m) !== null
+            return comment.match(/^.*i\s+have\s+read\s+the\s+dco\s+document\s+and\s+i\s+hereby\s+sign\s+the\s+dco.*$/m) !== null
         case 'false':
-            return comment.match(/^.*i \s*have \s*read \s*the \s*cla \s*document \s*and \s*i \s*hereby \s*sign \s*the \s*cla.*$/m) !== null
+            return comment.match(/^.*i\s+have\s+read\s+the\s+cla\s+document\s+and\s+i\s+hereby\s+sign\s+the\s+cla.*$/m) !== null
         default:
             return false
     }
