@@ -58,14 +58,14 @@ A contributor who pastes the sign phrase with tabs (or whose paste pipeline conv
 
 Replace direct `octokit.rest.issues.listComments(...)` with `octokit.paginate(octokit.rest.issues.listComments, ...)`. Affects both the "find the bot comment" lookup and the "scan all comments for sign phrases" scan.
 
-### SF-3 · `path-to-signatures` triple inconsistency
+### SF-3 · `path-to-signatures` triple inconsistency — ✅ FIXED (default changed; documented as breaking)
 
 - **Source:** docs review (#1)
 - **Locations:** README inputs-table (line 213), README body (line 111), README workflow example (line 60), `action.yml` (line 10).
 
 Three different "defaults" are stated: `./signatures/cla.json` (action.yml + table), `signatures/version1/cla.json` (body prose + example). Pick one. The `action.yml` value is the actual default; either the prose and the example should align with it, or change `action.yml`.
 
-### SF-4 · `branch` default mismatch: example shows `'main'`, default is `'master'`
+### SF-4 · `branch` default mismatch: example shows `'main'`, default is `'master'` — ✅ FIXED (default changed; documented as breaking)
 
 - **Source:** docs review (#2)
 - **Locations:** README example (line 63) and `action.yml` (line 13).

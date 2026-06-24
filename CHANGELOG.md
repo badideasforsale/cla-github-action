@@ -27,6 +27,10 @@ The original CLA Assistant work — both the [hosted service](https://github.com
 
 Consolidated summary of every behavior change consumers may notice when upgrading from `contributor-assistant/github-action@v2.6.1` or earlier to this fork's `@v3`. Most are corrections of long-standing bugs — listed here so the change is discoverable rather than surprising.
 
+**Input default changes (require explicit override if you depended on the old values):**
+- **`branch` default changed: `master` → `main`** (SF-4). v2.x defaulted to `master`; v3 defaults to `main` to match GitHub's own new-repo default (since 2020) and the README example workflow. **If your signatures branch is named `master`**, set `branch: 'master'` explicitly in your workflow yaml — otherwise the action will try to commit signatures to a `main` branch that may not exist and fail.
+- **`path-to-signatures` default changed: `./signatures/cla.json` → `signatures/version1/cla.json`** (SF-3). Aligns the action.yml default with the path the upstream README has always shown in its example, and that most consumers explicitly set anyway. **If you previously omitted this input and relied on the v2 default**, your existing `cla.json` file is at the old path; either move it to `signatures/version1/cla.json` OR set `path-to-signatures: './signatures/cla.json'` explicitly to keep using the old location. Without one of these, the action will treat the PR as "first install" (no signatures file) and try to create a new one at the new default path, orphaning your existing signatures.
+
 **Inputs:**
 - **`signed-empty-commit-message` input removed** ([M2.9](./.plan/get-well-plan.md)). It was declared in `action.yml` but never read by any code path. Consumers who set it on v2.x: drop the line; behavior is unchanged.
 
@@ -44,7 +48,6 @@ Consolidated summary of every behavior change consumers may notice when upgradin
 - The README example workflow now has an explicit `if: github.event.issue.pull_request` guard so the action doesn't fire on plain-issue comments ([upstream #180](https://github.com/contributor-assistant/github-action/issues/180)).
 
 **Intentionally NOT changed** (considered, rejected):
-- `branch` input default stays `master`. We considered defaulting to `main` (which GitHub itself defaults to for new repos since 2020), but the silent break for `master`-based consumers who don't set the input outweighs the convenience. Set the input explicitly to suppress.
 - `lock-pullrequest-aftermerge` default stays `true`. Locking is a security-relevant default (prevents post-merge signature revocation); changing the default to `false` would silently downgrade behavior for every existing consumer.
 - `allowlist` input not renamed to `allowlist-users`. Considered for clarity vs. the new `exempt-repo-org-members`, but the rename costs every consumer a yaml edit for marginal disambiguation. The two inputs are clearly distinguished by name as-is.
 

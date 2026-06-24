@@ -7,10 +7,10 @@ branding:
 inputs:
   path-to-signatures:
     description: "Path to the JSON file where CLA/DCO signatures are stored."
-    default: "./signatures/cla.json"
+    default: "signatures/version1/cla.json"
   branch:
     description: "Branch on the storage repo where signatures are committed. Must not be branch-protected."
-    default: "master"
+    default: "main"
   allowlist:
     description: "Comma-separated users, wildcard patterns, @org entries (every org member auto-allowlisted), or @org/team entries (every team member). Case-insensitive. @org/team always needs read:org scope; private @org likewise."
     default: ""

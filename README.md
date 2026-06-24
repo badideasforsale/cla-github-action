@@ -210,8 +210,8 @@ Inputs without a default are required. `action.yml` is the source of truth; this
 | Name | Default | Description | Example |
 | --- | --- | --- | --- |
 | `path-to-document` | _(required)_ | Full URL to the CLA/DCO document the contributor must sign. Can be a file in this repo, a gist, or any web URL. | `https://github.com/<owner>/<repo>/blob/main/CLA.md` |
-| `path-to-signatures` | `./signatures/cla.json` | Path inside the storage repo for the JSON file holding signatures. | `signatures/version1/cla.json` |
-| `branch` | `master` | Branch on the storage repo where signatures are committed. Must not be branch-protected. | `main` |
+| `path-to-signatures` | `signatures/version1/cla.json` | Path inside the storage repo for the JSON file holding signatures. | `signatures/version1/cla.json` |
+| `branch` | `main` | Branch on the storage repo where signatures are committed. Must not be branch-protected. | `main` |
 | `use-dco-flag` | `"false"` | Set to `"true"` to use DCO wording and detection regex instead of CLA. | `"true"` |
 | `allowlist` | `""` | Comma-separated usernames, wildcard patterns, `@org` (every org member), or `@org/team` (every team member incl. child teams). Case-insensitive. See [Users, bots, orgs, and teams in allowlist](#5-users-bots-orgs-and-teams-in-allowlist). | `'user1,bot*,@acme,@acme/security'` |
 | `exempt-repo-org-members` | `"false"` | When `"true"`, members of the repository's owning organization are auto-allowlisted. Requires `read:org` for private orgs. | `"true"` |
