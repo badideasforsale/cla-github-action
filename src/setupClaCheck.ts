@@ -84,7 +84,25 @@ async function getCLAFileContentandSHA(
       )
     }
   }
-  sha = result?.data?.sha
+  // SF-9: octokit's getContent returns:
+  //   - an object with `content` (base64 string) + `sha` when path-to-signatures
+  //     points at a file (the intended case)
+  //   - an array when it points at a directory
+  //   - object with other shapes for symlinks / submodules
+  // Hitting any non-file shape currently throws cryptically inside Buffer.from
+  // or JSON.parse. Guard explicitly with an error that names the input.
+  if (
+    !result?.data ||
+    Array.isArray(result.data) ||
+    typeof (result.data as any).content !== 'string'
+  ) {
+    throw new Error(
+      `path-to-signatures does not point at a file: got ${
+        Array.isArray(result?.data) ? 'a directory' : 'an unexpected response shape'
+      }. Check your "path-to-signatures" input is a path to a JSON file, not a directory or symlink.`
+    )
+  }
+  sha = result.data.sha
   claFileContentString = Buffer.from(result.data.content, 'base64').toString()
   claFileContent = JSON.parse(claFileContentString)
   return { claFileContent, sha }

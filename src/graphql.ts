@@ -116,4 +116,14 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
     }
 }
 
-const extractUserFromCommit = (commit) => commit.author.user || commit.committer.user || commit.author || commit.committer
+// SF-11: orphan / rewritten commit history can have a null `commit.author`
+// (the git author header is absent). The pre-fix code dereferenced
+// `commit.author.user` directly and crashed. Optional chain on each branch.
+// Final `|| {}` provides a safe shape downstream code can still read
+// `.login` / `.name` from without crashing further.
+const extractUserFromCommit = (commit) =>
+    commit?.author?.user
+    || commit?.committer?.user
+    || commit?.author
+    || commit?.committer
+    || {}

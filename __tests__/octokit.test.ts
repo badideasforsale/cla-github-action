@@ -220,6 +220,22 @@ describe('App auth (M5.2b)', () => {
     expect(warnings).toMatch(/Invalid github-app-installation-id/)
   })
 
+  it('SF-13: warns on a trailing-garbage installation id like "12abc"', async () => {
+    // Pre-fix parseInt('12abc', 10) returned 12 silently, carrying a wrong
+    // id forward to a 404. Number() returns NaN on trailing garbage.
+    configureAppInputs('12345', '12abc')
+    process.env.GITHUB_APP_PRIVATE_KEY = PEM
+    mockGetRepoInstallation.mockResolvedValueOnce({ data: { id: 555 } })
+
+    const oc = (await getOctokit()) as any
+
+    expect((oc as any)._auth.installationId).toBe(555)
+    const warnings = (jest.mocked(core.warning).mock.calls as any[][])
+      .map(c => c[0])
+      .join('\n')
+    expect(warnings).toMatch(/Invalid github-app-installation-id "12abc"/)
+  })
+
   it('App wins over PAT for storage when both configured', async () => {
     configureAppInputs('12345', '67890')
     process.env.GITHUB_APP_PRIVATE_KEY = PEM

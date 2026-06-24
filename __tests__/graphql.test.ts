@@ -305,6 +305,36 @@ describe('getCommitters — SEC-DEDUP-NAME-COLLISION', () => {
     expect(committers).toHaveLength(1)
   })
 
+  it('SF-11: does not crash on an orphan commit with null author', async () => {
+    // A rewritten / orphan commit can return null for `commit.author`.
+    // Pre-fix `extractUserFromCommit` dereferenced `commit.author.user`
+    // directly and threw a TypeError.
+    const orphan = {
+      node: {
+        commit: {
+          author: null,
+          committer: null
+        }
+      },
+      cursor: 'c'
+    }
+    mockGraphql.mockResolvedValueOnce({
+      repository: {
+        pullRequest: {
+          commits: {
+            edges: [commitNode('alice', 1), orphan],
+            pageInfo: { hasNextPage: false, endCursor: null }
+          }
+        }
+      }
+    })
+
+    // Should not throw. The orphan commit becomes a degenerate committer
+    // with undefined name/id; it ends up in the "unknown" bucket downstream.
+    const committers = await getCommitters()
+    expect(committers.find(c => c.name === 'alice')).toBeDefined()
+  })
+
   it('treats two UNRESOLVED authors with the same name but different emails as distinct', async () => {
     const node = (email: string) => ({
       node: {

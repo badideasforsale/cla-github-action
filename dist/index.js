@@ -25199,12 +25199,13 @@ async function tryAppOctokit() {
   let installationId;
   const idInput = getGitHubAppInstallationId();
   if (idInput) {
-    const parsed = parseInt(idInput, 10);
-    if (Number.isFinite(parsed) && parsed > 0) {
+    const trimmed = idInput.trim();
+    const parsed = Number(trimmed);
+    if (Number.isInteger(parsed) && parsed > 0 && trimmed !== "") {
       installationId = parsed;
     } else {
       warning(
-        `Invalid github-app-installation-id "${idInput}"; falling back to auto-discovery.`
+        `Invalid github-app-installation-id "${idInput}"; must be a positive integer. Falling back to auto-discovery.`
       );
     }
   }
@@ -25599,7 +25600,7 @@ async function getCommitters() {
     throw new Error(`graphql call to get the committers details failed: ${e}`);
   }
 }
-var extractUserFromCommit = (commit) => commit.author.user || commit.committer.user || commit.author || commit.committer;
+var extractUserFromCommit = (commit) => commit?.author?.user || commit?.committer?.user || commit?.author || commit?.committer || {};
 
 // src/shared/substituteCommitMessage.ts
 function buildCommitMessage(template, vars) {
@@ -25684,7 +25685,16 @@ async function updateFile(sha, claFileContent, reactedCommitters) {
   });
 }
 function isRemoteRepoOrOrgConfigured() {
-  return Boolean(getRemoteRepoName() || getRemoteOrgName());
+  const repo = getRemoteRepoName();
+  const org = getRemoteOrgName();
+  if (Boolean(repo) !== Boolean(org)) {
+    const set2 = repo ? "remote-repository-name" : "remote-organization-name";
+    const missing = repo ? "remote-organization-name" : "remote-repository-name";
+    warning(
+      `Cross-repo signatures: only "${set2}" is set; "${missing}" is required to complete the cross-repo configuration. Falling back to the PR's own repo for the missing field \u2014 this is probably not what you wanted. Set both inputs together.`
+    );
+  }
+  return Boolean(repo || org);
 }
 
 // src/pullrequest/signatureComment.ts
@@ -26039,7 +26049,12 @@ async function getCLAFileContentandSHA(committers, committerMap) {
       );
     }
   }
-  sha = result?.data?.sha;
+  if (!result?.data || Array.isArray(result.data) || typeof result.data.content !== "string") {
+    throw new Error(
+      `path-to-signatures does not point at a file: got ${Array.isArray(result?.data) ? "a directory" : "an unexpected response shape"}. Check your "path-to-signatures" input is a path to a JSON file, not a directory or symlink.`
+    );
+  }
+  sha = result.data.sha;
   claFileContentString = Buffer.from(result.data.content, "base64").toString();
   claFileContent = JSON.parse(claFileContentString);
   return { claFileContent, sha };

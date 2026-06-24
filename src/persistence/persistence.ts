@@ -111,5 +111,19 @@ export async function updateFile(
 }
 
 function isRemoteRepoOrOrgConfigured(): boolean {
-  return Boolean(input.getRemoteRepoName() || input.getRemoteOrgName())
+  const repo = input.getRemoteRepoName()
+  const org = input.getRemoteOrgName()
+  // SF-8: setting one without the other silently falls back per-field
+  // (`getRemoteOrgName() || context.repo.owner`), so the action ends up
+  // writing to a path the consumer didn't intend — e.g. `acme-org/<this-PR's-repo-name>`
+  // when only `remote-organization-name: acme-org` was set. Warn loudly.
+  if (Boolean(repo) !== Boolean(org)) {
+    const set = repo ? 'remote-repository-name' : 'remote-organization-name'
+    const missing = repo ? 'remote-organization-name' : 'remote-repository-name'
+    core.warning(
+      `Cross-repo signatures: only "${set}" is set; "${missing}" is required to complete the cross-repo configuration. ` +
+      `Falling back to the PR's own repo for the missing field — this is probably not what you wanted. Set both inputs together.`
+    )
+  }
+  return Boolean(repo || org)
 }

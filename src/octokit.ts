@@ -153,12 +153,17 @@ async function tryAppOctokit(): Promise<OctokitInstance | null> {
   let installationId: number | undefined
   const idInput = input.getGitHubAppInstallationId()
   if (idInput) {
-    const parsed = parseInt(idInput, 10)
-    if (Number.isFinite(parsed) && parsed > 0) {
+    // SF-13: `parseInt('12abc', 10)` returns 12 silently. Use `Number()`
+    // which returns NaN on any trailing non-digit, plus `Number.isInteger`
+    // to also reject `"12.3"` and `"1e5"`. Refuses typos cleanly instead
+    // of carrying a malformed installation id forward to a 404.
+    const trimmed = idInput.trim()
+    const parsed = Number(trimmed)
+    if (Number.isInteger(parsed) && parsed > 0 && trimmed !== '') {
       installationId = parsed
     } else {
       core.warning(
-        `Invalid github-app-installation-id "${idInput}"; falling back to auto-discovery.`
+        `Invalid github-app-installation-id "${idInput}"; must be a positive integer. Falling back to auto-discovery.`
       )
     }
   }

@@ -71,6 +71,23 @@ describe('BUG-404-STRING (#155): auto-create signatures file on first run', () =
 
     expect(mockedCreate).not.toHaveBeenCalled()
   })
+
+  it('SF-9: throws a clear error when path-to-signatures points at a directory', async () => {
+    // octokit's getContent returns an array when the path is a directory.
+    // Pre-fix the code dereferenced result.data.content (undefined) and
+    // crashed inside Buffer.from with a cryptic TypeError.
+    mockedGet.mockResolvedValueOnce({
+      data: [
+        { name: 'cla.json', type: 'file' },
+        { name: 'archive', type: 'dir' }
+      ]
+    } as any)
+
+    await expect(setupClaCheck()).rejects.toThrow(
+      /path-to-signatures does not point at a file.*directory/
+    )
+    expect(mockedCreate).not.toHaveBeenCalled()
+  })
 })
 
 import { logUnsignedCommitterDetails } from '../src/setupClaCheck'
