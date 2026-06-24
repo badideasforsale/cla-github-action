@@ -10,7 +10,7 @@
 
 ## TAG-BLOCKERS — verify and fix before `v3.0.0`
 
-### TAG-1 · CLA bypass via `getCommitters` dedup-by-name collision
+### TAG-1 · CLA bypass via `getCommitters` dedup-by-name collision — ✅ FIXED in `3afcb68`
 
 - **Severity:** Medium (security)
 - **Source:** security audit (FIND-SEC-DEDUP-NAME-COLLISION)
@@ -42,7 +42,7 @@ Add a regression test that asserts: PR with `[{login: 'alice', id: 12345}, {name
 
 Each below is a real correctness or behavior issue, but not severe enough to block the tag. Numbered for tracking; not ordered by priority within this section.
 
-### SF-1 · Signature regex fails on tab whitespace
+### SF-1 · Signature regex fails on tab whitespace — ✅ FIXED in `398d692`
 
 - **Source:** bugs review (#4)
 - **Location:** `src/pullrequest/signatureComment.ts:76-78`
@@ -50,7 +50,7 @@ Each below is a real correctness or behavior issue, but not severe enough to blo
 
 A contributor who pastes the sign phrase with tabs (or whose paste pipeline converts spaces to tabs — enterprise email gateways do this) silently fails the sign. Replace each `<literal-space>\s*` with `\s+`. Add `s` flag if you want the phrase to span line-wraps.
 
-### SF-2 · `listComments` not paginated — signs miss on verbose PRs
+### SF-2 · `listComments` not paginated — signs miss on verbose PRs — ✅ FIXED in `925979e`
 
 - **Source:** bugs review (#22)
 - **Location:** `src/pullrequest/signatureComment.ts:13-17` and `src/pullrequest/pullRequestComment.ts:64`
