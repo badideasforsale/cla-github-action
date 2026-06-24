@@ -25516,6 +25516,7 @@ function getPullRequestNumber() {
 
 // src/graphql.ts
 var MAX_PAGES2 = 50;
+var GITHUB_ACTIONS_BOT_USER_ID = 41898282;
 async function getCommitters() {
   try {
     const octokit = await getOctokit2();
@@ -25595,7 +25596,7 @@ async function getCommitters() {
       }
       cursor = page.pageInfo.endCursor;
     }
-    return committers.filter((committer) => committer.id !== 41898282);
+    return committers.filter((committer) => committer.id !== GITHUB_ACTIONS_BOT_USER_ID);
   } catch (e) {
     throw new Error(`graphql call to get the committers details failed: ${e}`);
   }
@@ -25723,14 +25724,7 @@ async function signatureWithPRComment(committerMap, committers) {
       pullRequestNo: getPullRequestNumber()
     });
   });
-  listOfPRComments.map((comment) => {
-    if (isCommentSignedByUser(comment.body || "", comment.name)) {
-      filteredListOfPRComments.push(comment);
-    }
-  });
-  for (var i = 0; i < filteredListOfPRComments.length; i++) {
-    delete filteredListOfPRComments[i].body;
-  }
+  filteredListOfPRComments = listOfPRComments.filter((comment) => isCommentSignedByUser(comment.body || "", comment.name)).map(({ body, ...rest }) => rest);
   const newSigned = filteredListOfPRComments.filter((commentedCommitter) => committerMap.notSigned.some((notSignedCommitter) => commentedCommitter.id === notSignedCommitter.id));
   const onlyCommitters = committers.filter((committer) => filteredListOfPRComments.some((commentedCommitter) => committer.id == commentedCommitter.id));
   const commentedCommitterMap = {
@@ -25948,24 +25942,19 @@ async function getBranchOfPullRequest() {
 }
 async function getSelfWorkflowId() {
   const octokit = await getOctokit2();
-  const perPage = 30;
-  let hasNextPage = true;
-  for (let page = 1; hasNextPage === true; page++) {
+  const perPage = 100;
+  for (let page = 1; ; page++) {
     const workflowList = await octokit.rest.actions.listRepoWorkflows({
       owner: context2.repo.owner,
       repo: context2.repo.repo,
       per_page: perPage,
       page
     });
-    if (workflowList.data.total_count < page * perPage) {
-      hasNextPage = false;
-    }
     const workflow = workflowList.data.workflows.find(
       (w) => w.name == context2.workflow
     );
-    if (workflow) {
-      return workflow.id;
-    }
+    if (workflow) return workflow.id;
+    if (workflowList.data.workflows.length < perPage) break;
   }
   warning(
     `Could not locate workflow "${context2.workflow}" by name; skipping post-sign re-run of any failed check.`
@@ -26138,7 +26127,7 @@ async function lockPullRequest() {
 // src/main.ts
 async function run() {
   try {
-    info(`CLA Assistant GitHub Action bot has started the process`);
+    info(`Self-Hosted CLA/DCO Assistant bot has started the process`);
     if (context2.payload.action === "closed" && context2.payload.pull_request?.merged === true && lockPullRequestAfterMerge() == "true") {
       return lockPullRequest();
     }

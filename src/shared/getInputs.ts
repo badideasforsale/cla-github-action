@@ -1,3 +1,13 @@
+/**
+ * Thin wrappers around `core.getInput(...)` for every action.yml input.
+ *
+ * Every getter returns `string` because GitHub Actions inputs are not
+ * typed — even `default: "false"` comes through as the literal string
+ * `"false"`. Callers compare against `'true'`/`'false'` literals (see
+ * `main.ts`, `signatureComment.ts`). Defaults declared in `action.yml`
+ * take effect at the runtime layer, so `getInput('X')` returns the
+ * default when the caller's workflow yaml omits the input.
+ */
 import * as core from '@actions/core'
 
 export const getRemoteRepoName = (): string => {

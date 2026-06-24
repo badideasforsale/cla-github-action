@@ -6,6 +6,7 @@
   "description": "Authenticates the Self-Hosted CLA Assistant GitHub Action so it can post PR comments and write the signatures file as a bot identity instead of a human-owned PAT.",
 
   "public": false,
+  "_public_note": "false = installable only in YOUR own org/account (most common for self-hosted CLA workflows). Set true if you want other orgs to install your App (e.g. a public OSS project where contributors install in their forks). Cannot be changed via the GitHub UI post-creation; if you need to flip it later use the Apps Settings API.",
 
   "hook_attributes": {
     "url": "https://example.invalid/unused",

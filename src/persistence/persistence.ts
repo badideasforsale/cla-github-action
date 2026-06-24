@@ -85,7 +85,11 @@ export async function updateFile(
   }
   // Dedup against existing ids — without this, signing twice from the same PR
   // creates duplicate entries in cla.json.
-  const existingIds = new Set<number>(
+  // `CommittersDetails.id` is `string | number` because unresolved committers
+  // carry `id: ''`. Real signed entries are always numeric; the empty-string
+  // case never collides with a real id, so the dedup behaves correctly for
+  // both shapes.
+  const existingIds = new Set<number | string>(
     (claFileContent?.signedContributors ?? []).map(c => c.id)
   )
   const toAdd = reactedCommitters.newSigned.filter(c => !existingIds.has(c.id))

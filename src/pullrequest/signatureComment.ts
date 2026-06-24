@@ -39,22 +39,15 @@ export default async function signatureWithPRComment(committerMap: CommitterMap,
             pullRequestNo: getPullRequestNumber()
         })
     })
-    listOfPRComments.map(comment => {
-        if (isCommentSignedByUser(comment.body || "", comment.name)) {
-            filteredListOfPRComments.push(comment)
-        }
-    })
-    for (var i = 0; i < filteredListOfPRComments.length; i++) {
-        delete filteredListOfPRComments[i].body
-    }
-    /*
-    *checking if the reacted committers are not the signed committers(not in the storage file) and filtering only the unsigned committers
-    */
-    const newSigned = filteredListOfPRComments.filter(commentedCommitter => committerMap.notSigned!.some(notSignedCommitter => commentedCommitter.id === notSignedCommitter.id))
+    // P-9 + P-10: one-pass filter + body-strip. The pre-fix code used .map for
+    // its side effect, then a separate `for (var i ...)` to delete `.body`
+    // from each survivor — three passes, `var`, and the same mutation in a
+    // different idiom in each pass. Now one filter+map pipeline.
+    filteredListOfPRComments = listOfPRComments
+        .filter(comment => isCommentSignedByUser(comment.body || "", comment.name))
+        .map(({ body, ...rest }) => rest as CommittersDetails)
 
-    /*
-    * checking if the commented users are only the contributors who has committed in the same PR (This is needed for the PR Comment and changing the status to success when all the contributors has reacted to the PR)
-    */
+    const newSigned = filteredListOfPRComments.filter(commentedCommitter => committerMap.notSigned!.some(notSignedCommitter => commentedCommitter.id === notSignedCommitter.id))
     const onlyCommitters = committers.filter(committer => filteredListOfPRComments.some(commentedCommitter => committer.id == commentedCommitter.id))
     const commentedCommitterMap: ReactedCommitterMap = {
         newSigned,

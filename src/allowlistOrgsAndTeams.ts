@@ -140,6 +140,14 @@ export async function expandOrgsAndTeams(
 }
 
 async function fetchOrgMembers(octokit: any, org: string): Promise<string[]> {
+  // P-7: `membersWithRole` includes admins + members of the org. It does NOT
+  // include outside collaborators — repos can grant individual access without
+  // org membership, and those users are invisible here. A consumer who
+  // allowlists `@acme-corp` to exempt "everyone at acme" may be surprised
+  // when a long-running outside-collaborator contributor still hits the CLA
+  // gate. Document but don't change: outside collaborators don't have a
+  // claim to the corporate CLA the consumer is presumably relying on, so
+  // requiring them to sign individually is the safer default.
   const out: string[] = []
   let cursor: string | null = null
   let pages = 0

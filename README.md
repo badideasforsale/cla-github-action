@@ -159,6 +159,11 @@ The action needs a token to read PR data, post comments, and write the signature
 
 A dedicated GitHub App with bot identity, short-lived 1-hour tokens, no human ownership. Best for production, best for org-wide rollouts, best for cross-repo signatures storage. Two inputs + one env var:
 
+> [!NOTE]
+> **Naming the App.** GitHub App names are globally unique across all of github.com. The reference manifest at `docs/cla-app-manifest.json` declares `"name": "Self-Hosted CLA Assistant"`, which is already taken or will be taken soon. Prefix with your org or project — e.g. `acme-cla-bot` — when filling in the App creation form.
+>
+> **Public vs private.** The reference manifest sets `"public": false`, meaning your App can only be installed in your own org/account. If you want to allow other orgs (e.g. for a public open-source project where contributors install the App in their own forks for cross-repo storage), switch to `"public": true` before creating the App. The bool can't be changed via the UI after creation — only programmatically via the App's settings API.
+
 ```yml
         with:
           github-app-id: ${{ secrets.CLA_APP_ID }}

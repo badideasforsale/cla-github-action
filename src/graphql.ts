@@ -10,6 +10,14 @@ import { getPullRequestNumber } from './shared/getPullRequestNumber'
 // check still runs on what we saw) than to silently swallow.
 const MAX_PAGES = 50
 
+// P-5: github-actions[bot]'s numeric `databaseId`. Stripped so the action's
+// own signature commits don't appear as "an unsigned committer" on the next
+// run, infinite-looping the sign check. If GitHub ever reassigns this id
+// (extremely unlikely — it's been stable since 2019) the loop would resume
+// and the failure mode would be "the action requires its own bot to sign,"
+// which surfaces quickly in the workflow logs.
+const GITHUB_ACTIONS_BOT_USER_ID = 41898282
+
 export default async function getCommitters(): Promise<CommittersDetails[]> {
     try {
         const octokit = await getOctokit()
@@ -110,7 +118,7 @@ export default async function getCommitters(): Promise<CommittersDetails[]> {
             cursor = page.pageInfo.endCursor
         }
 
-        return committers.filter(committer => committer.id !== 41898282)
+        return committers.filter(committer => committer.id !== GITHUB_ACTIONS_BOT_USER_ID)
     } catch (e) {
         throw new Error(`graphql call to get the committers details failed: ${e}`)
     }

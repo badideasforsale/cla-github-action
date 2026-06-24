@@ -48,10 +48,14 @@ async function getBranchOfPullRequest(): Promise<string> {
 // list pagination edge cases).
 async function getSelfWorkflowId(): Promise<number | null> {
   const octokit = await getOctokit()
-  const perPage = 30
-  let hasNextPage = true
+  const perPage = 100
 
-  for (let page = 1; hasNextPage === true; page++) {
+  // P-14: previous loop used `total_count < page * perPage` as the stop
+  // condition, which wasted one empty API call whenever the total was an
+  // exact multiple of perPage (page 1 returns 30 of 30, then page 2 fires
+  // and returns empty before stopping). Stop on `workflows.length < perPage`
+  // instead — the last page is by definition the one that's not full.
+  for (let page = 1; ; page++) {
     const workflowList = await octokit.rest.actions.listRepoWorkflows({
       owner: context.repo.owner,
       repo: context.repo.repo,
@@ -59,17 +63,12 @@ async function getSelfWorkflowId(): Promise<number | null> {
       page
     })
 
-    if (workflowList.data.total_count < page * perPage) {
-      hasNextPage = false
-    }
-
     const workflow = workflowList.data.workflows.find(
       w => w.name == context.workflow
     )
+    if (workflow) return workflow.id
 
-    if (workflow) {
-      return workflow.id
-    }
+    if (workflowList.data.workflows.length < perPage) break
   }
 
   core.warning(
@@ -95,7 +94,10 @@ async function listWorkflowRunsInBranch(
 }
 
 async function reRunWorkflow(run: number): Promise<any> {
-  // Personal Access token with repo scope is required to access this api - https://github.community/t/bug-rerun-workflow-api-not-working/126742
+  // P-4 (was: 2020-era "PAT required" comment). Post-M5.2 this call uses
+  // whichever octokit `getOctokit()` returns — App > PAT > GITHUB_TOKEN. The
+  // default GITHUB_TOKEN works under `pull_request_target` for re-running
+  // a workflow on the PR's branch; no extra scope needed.
   const octokit = await getOctokit()
   await octokit.rest.actions.reRunWorkflow({
     owner: context.repo.owner,

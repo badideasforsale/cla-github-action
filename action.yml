@@ -34,10 +34,10 @@ inputs:
   custom-allsigned-prcomment:
     description: "Override the bot's 'all signed' PR comment. Default: 'All contributors have signed the CLA/DCO ✍️ ✅' (auto-flips on use-dco-flag)."
   use-dco-flag:
-    description: "Set this to true if you want to use a dco instead of a cla"
+    description: "Set to 'true' to use DCO wording, sign-phrase regex, and document-link label instead of CLA. See README §DCO mode for caveats — this action accepts a phrase, not a Signed-off-by trailer."
     default: "false"
   lock-pullrequest-aftermerge:
-    description: "Will lock the pull request after merge so that the signature the contributors cannot revoke their signature comments after merge"
+    description: "Lock the PR conversation after merge so contributors can't edit or delete their signature comments post-merge. Fires only when the PR is actually merged (not on close-without-merge). Best-effort: failures log via core.error but do not fail the workflow."
     default: "true"
   suggest-recheck:
     description: "Controls whether or not the action's comment should suggest that users comment `recheck`."

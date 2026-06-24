@@ -18,7 +18,7 @@ This is a TypeScript GitHub Action bundled with `esbuild` into a single `dist/in
 ```sh
 npm ci                       # install deps from package-lock.json
 npm run build                # tsc + esbuild → dist/index.js
-npm test                     # jest — 99 tests across __tests__/
+npm test                     # jest — ~140 tests across __tests__/
 npm run validate-actions     # action-validator on action.yml + workflows
 ```
 
@@ -59,7 +59,32 @@ Use [GitHub Issues](https://github.com/badideasforsale/cla-github-action/issues)
 
 PRs are welcome. The fork is small and unbureaucratic — no CLA/DCO requirement to contribute *to this fork* (the action itself implements CLA/DCO checks for *consumers'* projects).
 
-Before opening a PR:
+### What's in scope
+
+This is **self-hosted** CLA/DCO: the action runs entirely inside GitHub Actions, signatures are stored as JSON in a repo of the consumer's choice, no third-party service. Contributions that fit:
+
+- Bug fixes — correctness, UX, edge cases, security.
+- Quality-of-life inputs / flags for existing flows.
+- Better docs, examples, troubleshooting.
+- Test coverage for paths that lack it.
+
+### What's out of scope (won't merge)
+
+- Adding a hosted backend, web UI, or database. Use [`cla-assistant.io`](https://cla-assistant.io) if you want that.
+- Tracking signatures outside the storage-file model (e.g. a separate audit DB, an external API).
+- Features that require a paid GitHub plan (e.g. Enterprise-only APIs).
+- Re-adding any feature from the v2.x `addEmptyCommit` / `signed-empty-commit-message` dead-code era.
+
+### Good first contributions
+
+See `CHANGELOG.md`'s "Deferred to v3.1.x" list — three concrete deferred features are open for pickup:
+- `FEAT-ALLOWLIST-FROM-FILE` (`allowlist-file:` input for long lists)
+- `FEAT-LABELS` (read/write CLA-status labels on PRs)
+- `FEAT-CSV-MIGRATION-SCRIPT` (convert cla-assistant.io exports to our JSON format)
+
+Anything tagged `good first issue` or `help wanted` in [GitHub Issues](https://github.com/badideasforsale/cla-github-action/issues) is fair game too.
+
+### Before opening a PR
 
 - For non-trivial changes, open an issue first to discuss the approach. Saves you rewriting and saves us reviewing twice.
 - Match the surrounding style. Prettier config (`.prettierrc.json`) is enforced by convention, not (yet) by CI: 2-space indent, single quotes, no semicolons, no trailing commas, `arrowParens: avoid`.
