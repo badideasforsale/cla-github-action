@@ -28,7 +28,7 @@ export default async function prCommentSetup(committerMap: CommitterMap, committ
       if (reactedCommitters?.onlyCommitters) {
           reactedCommitters.allSignedFlag = prepareAllSignedCommitters(committerMap, reactedCommitters.onlyCommitters, committers)
       }
-      committerMap = prepareCommiterMap(committerMap, reactedCommitters)
+      committerMap = prepareCommitterMap(committerMap, reactedCommitters)
       await updateComment(reactedCommitters.allSignedFlag, committerMap, claBotComment)
       return reactedCommitters
     }
@@ -106,7 +106,7 @@ async function getComment() {
   }
 }
 
-function prepareCommiterMap(committerMap: CommitterMap, reactedCommitters) {
+function prepareCommitterMap(committerMap: CommitterMap, reactedCommitters) {
   committerMap.signed?.push(...reactedCommitters.newSigned)
   committerMap.notSigned = committerMap.notSigned!.filter(
     committer =>

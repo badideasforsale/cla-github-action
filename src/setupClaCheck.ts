@@ -30,7 +30,7 @@ export async function setupClaCheck() {
     committerMap
   )) as ClafileContentAndSha
 
-  committerMap = prepareCommiterMap(committers, claFileContent) as CommitterMap
+  committerMap = prepareCommitterMap(committers, claFileContent) as CommitterMap
 
   logUnsignedCommitterDetails(committerMap)
 
@@ -120,7 +120,7 @@ async function createClaFileAndPRComment(
   )
 }
 
-function prepareCommiterMap(
+function prepareCommitterMap(
   committers: CommittersDetails[],
   claFileContent
 ): CommitterMap {

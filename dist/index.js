@@ -25832,7 +25832,7 @@ async function prCommentSetup(committerMap, committers) {
       if (reactedCommitters?.onlyCommitters) {
         reactedCommitters.allSignedFlag = prepareAllSignedCommitters(committerMap, reactedCommitters.onlyCommitters, committers);
       }
-      committerMap = prepareCommiterMap(committerMap, reactedCommitters);
+      committerMap = prepareCommitterMap(committerMap, reactedCommitters);
       await updateComment(reactedCommitters.allSignedFlag, committerMap, claBotComment);
       return reactedCommitters;
     }
@@ -25887,7 +25887,7 @@ async function getComment() {
     throw new Error(`Error occured when getting  all the comments of the pull request: ${error2.message}`);
   }
 }
-function prepareCommiterMap(committerMap, reactedCommitters) {
+function prepareCommitterMap(committerMap, reactedCommitters) {
   committerMap.signed?.push(...reactedCommitters.newSigned);
   committerMap.notSigned = committerMap.notSigned.filter(
     (committer) => !reactedCommitters.newSigned.some(
@@ -26002,7 +26002,7 @@ async function setupClaCheck() {
     committers,
     committerMap
   );
-  committerMap = prepareCommiterMap2(committers, claFileContent);
+  committerMap = prepareCommitterMap2(committers, claFileContent);
   logUnsignedCommitterDetails(committerMap);
   try {
     const reactedCommitters = await prCommentSetup(
@@ -26065,7 +26065,7 @@ async function createClaFileAndPRComment(committers, committerMap) {
     `Committers of pull request ${getPullRequestNumber()} have to sign the CLA`
   );
 }
-function prepareCommiterMap2(committers, claFileContent) {
+function prepareCommitterMap2(committers, claFileContent) {
   let committerMap = getInitialCommittersMap();
   const signedList = claFileContent?.signedContributors ?? [];
   committerMap.notSigned = committers.filter(
